@@ -1,7 +1,6 @@
 #lang racket
 
 (require racket/generator)
-(require racket/match)
 
 (provide token token? tokenize token-sequence)
 
