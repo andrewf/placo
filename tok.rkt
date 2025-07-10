@@ -2,7 +2,7 @@
 
 (require racket/generator)
 
-(provide token token? tokenize token-sequence)
+(provide token token? token-kind token-text tokenize token-sequence)
 
 (struct token (kind text) #:transparent)
 
