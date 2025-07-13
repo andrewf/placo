@@ -29,23 +29,23 @@
                 (let (ident "x") (lit 3))))
 
 (check-equal? (parse (open-input-string "let abc= if x then (3) end let x=3"))
-              '((let (ident "abc") (if (var (ident "x")) (lit 3) #f))
+              '((let (ident "abc") (if (ident "x") (lit 3) #f))
                 (let (ident "x") (lit 3))))
 
 (check-equal? (parse (open-input-string "let abc= ( ( ( x) ) )"))
-              '((let (ident "abc") (var (ident "x")))))
+              '((let (ident "abc") (ident "x"))))
 
 (check-equal? (parse (open-input-string "let abc= if x then (3) else if 4 then ( ( (x) ) ) end end let x=3"))
-              '((let (ident "abc") (if (var (ident "x")) (lit 3)
-                                       (if (lit 4) (var (ident "x")) #f)))
+              '((let (ident "abc") (if (ident "x") (lit 3)
+                                       (if (lit 4) (ident "x") #f)))
                 (let (ident "x") (lit 3))))
 
 (check-equal? (parse (open-input-string "let abc= fun (x) if x then 3 else 4 end end"))
               '((let (ident "abc")
                   (fun (ident "x")
-                       (if (var (ident "x"))
+                       (if (ident "x")
                            (lit 3)
                            (lit 4))))))
 
 (check-equal? (parse (open-input-string "let abc = f ( ( 4 ) )"))
-              '((let (ident "abc") (funcall (var (ident "f")) (lit 4)))))
+              '((let (ident "abc") (funcall (ident "f") (lit 4)))))

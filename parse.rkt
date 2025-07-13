@@ -95,7 +95,7 @@
                   (paren-expr s)
                   (if-expr s)
                   (fun-expr s)
-                  (var-expr s)
+                  (ident s)
                   #f)])
     ; parse optional postfix clause (fn call parens, etc)
     (if main
