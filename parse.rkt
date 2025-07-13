@@ -37,11 +37,9 @@
   (match-token (lambda (t) (and (equal? (token-kind t) 'operator)
                                 (equal? (token-text t) text)))))
 
-
 (define (sym-matcher text)
   (match-token (lambda (t) (and (equal? (token-kind t) 'symbolic)
                                 (equal? (token-text t) text)))))
-
 
 ; real parser starts here
 (define (parse in-port)
@@ -81,12 +79,6 @@
         (list 'def id arg body))
       #f))
 
-(define (expr s)
-  (let ([n ((match-token (lambda (t) (equal? (token-kind t) 'numeric))) s)])
-    (if n
-        (list 'lit (token-text n))
-        #f)))
-
 (define (top-level-let s)
   (if ((match-token (lambda (t) (and (equal? (token-kind t) 'symbolic)
                                      (equal? (token-text t) "let")))) s)
@@ -97,3 +89,54 @@
             [bound-value (expect expr s "expected expression after =")])
         (list 'let n bound-value))
       #f))
+
+(define (expr s)
+  (or (lit-expr s)
+      (paren-expr s)
+      (if-expr s)
+      (fun-expr s)
+      (var-expr s)
+      #f))
+
+(define (fun-expr s)
+  (if ((sym-matcher "fun") s)
+      (let ([open-paren (expect (op-matcher "(") s "expected ( after fun keyword")]
+            [arg (ident s)]
+            [close-paren (expect (op-matcher ")") s "expected ) after arg or (")]
+            [body (expect expr s "expected body after )")]
+            [end-kw (expect (sym-matcher "end") s "expected 'end' after fn body")])
+        (list 'fun arg body))
+      #f))
+
+(define (lit-expr s)
+  (let ([n ((match-token (lambda (t) (equal? (token-kind t) 'numeric))) s)])
+    (if n
+        (list 'lit (token-text n))
+        #f)))
+
+(define (paren-expr s)
+  (if ((op-matcher "(") s)
+      (let ([body (expect expr s "expected expression after (")]
+            [closer (expect (op-matcher ")") s "expected ) after parenthesized expression")])
+        body)
+      #f))
+
+(define (if-expr s)
+  (define (else-clause s)
+    (if ((sym-matcher "else") s)
+        (expect expr s "expected expression after else")
+        #f))
+  (if ((sym-matcher "if") s)
+      (let ([condition (expect expr s "expected condition expr after if")]
+            [then-kw (expect (sym-matcher "then") s "expected then after if condition")]
+            [body (expect expr s "expected body of conditional after then")]
+            [else (else-clause s)]
+            [endkw (expect (sym-matcher "end") s "expected end at end of if expression")])
+        (list 'if condition body else))
+      #f))
+
+(define (var-expr s)
+  (let ([p (ident s)])
+    (if p
+        (list 'var p)
+        #f)))

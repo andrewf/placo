@@ -22,3 +22,27 @@
 
 (check-equal? (parse (open-input-string "let abc=42"))
               '((let (ident "abc") (lit 42))))
+
+
+(check-equal? (parse (open-input-string "let abc= (3) let x=3"))
+              '((let (ident "abc") (lit 3)) ; paren-expr unwraps itself
+                (let (ident "x") (lit 3))))
+
+(check-equal? (parse (open-input-string "let abc= if x then (3) end let x=3"))
+              '((let (ident "abc") (if (var (ident "x")) (lit 3) #f))
+                (let (ident "x") (lit 3))))
+
+(check-equal? (parse (open-input-string "let abc= ( ( ( x) ) )"))
+              '((let (ident "abc") (var (ident "x")))))
+
+(check-equal? (parse (open-input-string "let abc= if x then (3) else if 4 then ( ( (x) ) ) end end let x=3"))
+              '((let (ident "abc") (if (var (ident "x")) (lit 3)
+                                       (if (lit 4) (var (ident "x")) #f)))
+                (let (ident "x") (lit 3))))
+
+(check-equal? (parse (open-input-string "let abc= fun (x) if x then 3 else 4 end end"))
+              '((let (ident "abc")
+                  (fun (ident "x")
+                       (if (var (ident "x"))
+                           (lit 3)
+                           (lit 4))))))
