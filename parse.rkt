@@ -91,11 +91,22 @@
       #f))
 
 (define (expr s)
-  (or (lit-expr s)
-      (paren-expr s)
-      (if-expr s)
-      (fun-expr s)
-      (var-expr s)
+  (let ([main (or (lit-expr s)
+                  (paren-expr s)
+                  (if-expr s)
+                  (fun-expr s)
+                  (var-expr s)
+                  #f)])
+    ; parse optional postfix clause (fn call parens, etc)
+    (if main
+        (or (expr-postfix s main) main)
+        #f)))
+
+(define (expr-postfix s prefix)
+  (if ((op-matcher "(") s)
+      (let ([arg (expect expr s "expected expression after ( of fun call")]
+            [close-paren (expect (op-matcher ")") s "expected ) after arg or ( of fun call")])
+        (list 'funcall prefix arg))
       #f))
 
 (define (fun-expr s)

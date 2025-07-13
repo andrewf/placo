@@ -46,3 +46,6 @@
                        (if (var (ident "x"))
                            (lit 3)
                            (lit 4))))))
+
+(check-equal? (parse (open-input-string "let abc = f ( ( 4 ) )"))
+              '((let (ident "abc") (funcall (var (ident "f")) (lit 4)))))
