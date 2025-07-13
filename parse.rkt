@@ -11,6 +11,11 @@
 
 (define (end-token? t) (equal? (token-kind t) 'end))
 
+; if parser parses, return its result, else error
+(define (expect parser s errmsg)
+  (or (parser s) (error errmsg)))
+
+; pop current peek token off of token stream, move to next one
 (define (advance s)
   (let ([curr (token-stream-current s)])
     (if (end-token? curr)
@@ -21,6 +26,14 @@
           (set-token-stream-current! s newest)
           curr))))
 
+; create a parser that matches and returns a token or fails
+(define (match-token pred)
+  (lambda (s)
+    (if (pred (token-stream-current s))
+        (advance s)
+        #f)))
+
+; real parser starts here
 (define (parse in-port)
   (let ([s (make-token-stream (tokenize in-port))])
     (top-level s)))
@@ -29,13 +42,15 @@
 (define (top-level s)
   (if (end-token? (token-stream-current s))
       '()
-      (let ([p (top-level-def s)])
+      (let ([p (top-level-item s)])
         (if p
             (cons p (top-level s))
-            (error "failed to parse top-level item")))))
+            (error "failed to parse top-level item, expected def or let")))))
 
-(define (expect parser s errmsg)
-  (or (parser s) (error errmsg)))
+(define (top-level-item s)
+  (or (top-level-def s)
+      (top-level-let s)
+      #f))
 
 (define (ident s)
   (let ([peek (token-stream-current s)])
@@ -44,14 +59,26 @@
         #f)))
 
 (define (top-level-def s)
-  (let ([peek (token-stream-current s)])
-    (if (end-token? peek)
-      #f
-      (if (and (equal? (token-kind peek) 'symbolic)
-               (equal? (token-text peek) "def"))
-          ; commit to the parse
-          (begin
-            (advance s) ; skip def
-            (let ([id (expect ident s "expected ident after def")])
-              (list 'def id)))
-          (error (format "expected 'def' at top level, got ~a" peek))))))
+  (if ((match-token (lambda (t)  (and (equal? (token-kind t) 'symbolic)
+                                      (equal? (token-text t) "def")))) s)
+      ; commit to the parse
+      (let ([id (expect ident s "expected ident after def")])
+        (list 'def id))
+      #f))
+
+(define (expr s)
+  (let ([n ((match-token (lambda (t) (equal? (token-kind t) 'numeric))) s)])
+    (if n
+        (list 'lit (token-text n))
+        #f)))
+
+(define (top-level-let s)
+  (if ((match-token (lambda (t) (and (equal? (token-kind t) 'symbolic)
+                                     (equal? (token-text t) "let")))) s)
+      (let ([n (expect ident s "expected name after let")]
+            [equal-op (expect (match-token (lambda (t) (and (equal? (token-kind t) 'operator) (equal? (token-text t) "="))))
+                              s
+                              "expected = after let id")]
+            [bound-value (expect expr s "expected expression after =")])
+        (list 'let n bound-value))
+      #f))

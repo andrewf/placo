@@ -31,7 +31,7 @@
 
 (define (is-op? c)
   ; surely there must be a better way?
-  (string-contains? "!@#$%^&*()[]{},./-+~|" (make-string 1 c)))
+  (string-contains? "=!@#$%^&*()[]{},./-+~|" (make-string 1 c)))
 
 ; return generator of tokens
 (define (tokenize text-stream)
