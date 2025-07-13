@@ -33,6 +33,16 @@
         (advance s)
         #f)))
 
+(define (op-matcher text)
+  (match-token (lambda (t) (and (equal? (token-kind t) 'operator)
+                                (equal? (token-text t) text)))))
+
+
+(define (sym-matcher text)
+  (match-token (lambda (t) (and (equal? (token-kind t) 'symbolic)
+                                (equal? (token-text t) text)))))
+
+
 ; real parser starts here
 (define (parse in-port)
   (let ([s (make-token-stream (tokenize in-port))])
@@ -59,11 +69,16 @@
         #f)))
 
 (define (top-level-def s)
-  (if ((match-token (lambda (t)  (and (equal? (token-kind t) 'symbolic)
+  (if ((match-token (lambda (t) (and (equal? (token-kind t) 'symbolic)
                                       (equal? (token-text t) "def")))) s)
       ; commit to the parse
-      (let ([id (expect ident s "expected ident after def")])
-        (list 'def id))
+      (let ([id (expect ident s "expected ident after def")]
+            [open-paren (expect (op-matcher "(") s "expected ( after fn name")]
+            [arg (ident s)]
+            [close-paren (expect (op-matcher ")") s "expected ) after arg or (")]
+            [body (expect expr s "expected body after )")]
+            [end-kw (expect (sym-matcher "end") s "expected 'end' after fn body")])
+        (list 'def id arg body))
       #f))
 
 (define (expr s)

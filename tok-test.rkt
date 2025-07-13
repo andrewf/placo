@@ -8,6 +8,11 @@
                     (token 'symbolic "b_c"))
               "separates words")
 
+(check-equal? (sequence->list (token-sequence (open-input-string "fred(")))
+              (list (token 'symbolic "fred")
+                    (token 'operator "("))
+              "separates operators")
+
 (check-equal? (sequence->list (token-sequence (open-input-string "a3b 34 bc")))
               (list (token 'symbolic "a3b")
                     (token 'numeric 34)
