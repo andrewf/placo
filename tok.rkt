@@ -14,19 +14,21 @@
   (let* ([so-far (open-output-string)]
          [flush (lambda () (flush-fn (get-output-string so-far)))])
     (if (start-pred? (peek-char text-stream))
-        (let do-token ()
-          (let ([p (peek-char text-stream)])
-            (cond
-              [(eof-object? p)
-               (flush)]
-              [(continue-pred? p)
-               (begin
-                 (write-char (read-char text-stream) so-far)
-                 (do-token))]
-              [(error-pred? p)
-                (error "lexer error")]
-              [else
-               (flush)])))
+        (begin
+          (write-char (read-char text-stream) so-far) ; incl first char
+          (let do-token ()
+            (let ([p (peek-char text-stream)])
+              (cond
+                [(eof-object? p)
+                 (flush)]
+                [(continue-pred? p)
+                 (begin
+                   (write-char (read-char text-stream) so-far)
+                   (do-token))]
+                [(error-pred? p)
+                 (error "lexer error")]
+                [else
+                 (flush)]))))
         (raise "oh noes") )))
 
 (define (is-op? c)
@@ -67,7 +69,7 @@
            (yield (parse-token text-stream
                                (lambda (s) (token 'operator s))
                                is-op?
-                               is-op?))
+                               (lambda (t) #f))) ; continue is false, only single char operators
            (per-token)]
           [else (raise "augh")])))
     ; start loop
@@ -91,7 +93,12 @@
 (check-equal? (sequence->list (token-sequence (open-input-string "fred(")))
               (list (token 'symbolic "fred")
                     (token 'operator "("))
-              "separates operators")
+              "separates operators from words")
+
+(check-equal? (sequence->list (token-sequence (open-input-string "((")))
+              (list (token 'operator "(")
+                    (token 'operator "("))
+              "separates operators from each other")
 
 (check-equal? (sequence->list (token-sequence (open-input-string "a3b 34 bc")))
               (list (token 'symbolic "a3b")
