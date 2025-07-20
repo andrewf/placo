@@ -14,8 +14,19 @@
 
 (define (empty-env) '())
 
-(define (lookup env var) #f
-  )
+(define (lookup env var)
+  (if (empty? env)
+      'missing-var
+      (let* ([curr-binding (car env)]
+             [parent-env (cdr env)]
+             [curr-var (car curr-binding)]
+             [curr-val (cdr curr-binding)])
+        (if (equal? var curr-var)
+            curr-val
+            (lookup parent-env var)))))
+
+(define (bind-env var value env)
+  (cons (cons var value) env))
 
 (define (my-eval expr env)
   (let ([discr (car expr)]
@@ -41,10 +52,21 @@
             #f))))
     
 (module+ test
+  (check-equal? (my-eval '(ident "f")
+                         (bind-env "f" 12 (empty-env)))
+                12
+                "trivial var")
+
   (check-equal? (my-eval '(if (lit 0) (lit 1) (lit 2)) (empty-env))
                 2
-                "um")
-  (check-equal? (my-eval '(if (lit 1) (lit 1) (lit 2)) (empty-env))
+                "trivial if false")
+
+  (check-equal? (my-eval '(if (lit 42) (lit 1) (lit 2)) (empty-env))
                 1
-                "um")
+                "trivial if true")
+
+  (check-equal? (my-eval '(if (ident "f") (lit 1) (lit 2))
+                         (bind-env "f" 0 (empty-env)))
+                2
+                "if var")
 )
