@@ -2,29 +2,40 @@
 
 (provide parse parse-string)
 
-(require "tok.rkt")
+(module tokens racket
+  (require "tok.rkt")
 
-(struct token-stream (current next) #:mutable)
+  (provide port->token-stream end-token?
+           token-stream-current token-stream-next
+           token-kind token-text  ; re-exports from tok
+           advance)
 
-(define (make-token-stream next)
-  (token-stream (next) next))
+  (struct token-stream (current next) #:mutable)
 
-(define (end-token? t) (equal? (token-kind t) 'end))
+  (define (make-token-stream next)
+    (token-stream (next) next))
+
+  (define (end-token? t) (equal? (token-kind t) 'end))
+
+  (define (port->token-stream in-port) (make-token-stream (tokenize in-port)))
+
+  ; pop current peek token off of token stream, move to next one
+  (define (advance s)
+    (let ([curr (token-stream-current s)])
+      (if (end-token? curr)
+          ; don't advance a stream at its end
+          (curr)
+          ; not ended yet, actually advance
+          (let ([newest ((token-stream-next s))])
+            (set-token-stream-current! s newest)
+            curr))))
+)
+
+(require 'tokens)
 
 ; if parser parses, return its result, else error
 (define (expect parser s errmsg)
   (or (parser s) (error errmsg)))
-
-; pop current peek token off of token stream, move to next one
-(define (advance s)
-  (let ([curr (token-stream-current s)])
-    (if (end-token? curr)
-        ; don't advance a stream at its end
-        (curr)
-        ; not ended yet, actually advance
-        (let ([newest ((token-stream-next s))])
-          (set-token-stream-current! s newest)
-          curr))))
 
 ; create a parser that matches and returns a token or fails
 (define (match-token pred)
@@ -43,7 +54,7 @@
 
 ; real parser starts here
 (define (parse in-port)
-  (let ([s (make-token-stream (tokenize in-port))])
+  (let ([s (port->token-stream in-port)])
     (top-level s)))
 
 (define (parse-string s)
