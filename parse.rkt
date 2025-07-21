@@ -1,6 +1,6 @@
 #lang racket
 
-(provide parse)
+(provide parse parse-string)
 
 (require "tok.rkt")
 
@@ -45,6 +45,9 @@
 (define (parse in-port)
   (let ([s (make-token-stream (tokenize in-port))])
     (top-level s)))
+
+(define (parse-string s)
+  (parse (open-input-string s)))
 
 ; return #f or list of top-level def 
 (define (top-level s)
@@ -175,7 +178,6 @@
 
 (check-equal? (parse (open-input-string "let abc=42"))
               '((let (ident "abc") (lit 42))))
-
 
 (check-equal? (parse (open-input-string "let abc=(3) let x=3"))
               '((let (ident "abc") (lit 3)) ; paren-expr unwraps itself
