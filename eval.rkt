@@ -54,7 +54,7 @@
                      [arg (caddr item)]
                      [body (cadddr item)])
                (loopy (cdr toplevel-remaining)
-                      (bind-env id (list 'fun arg body) curr-env)))])))))
+                      (bind-env id (eval-fundef (list arg body) curr-env) curr-env)))])))))
 
 (define (eval-expr expr env)
   (let ([discr (car expr)]
@@ -69,8 +69,20 @@
       [(equal? discr 'funcall)
        (eval-funcall payload env)]
       [(equal? discr 'fun)
-       expr]  ; functions evaluate to themselves
+       (eval-fundef payload env)]
       [else (error (format "invalid expression ~a" discr))])))
+
+(define (eval-fundef payload env)
+  ; just need to capture lexical context
+  ; we can do that with closure in host language. lol.
+  (let* ([fun-arg (car payload)]
+         [fun-body (cadr payload)]
+         [arg-name (and fun-arg (extract-ident fun-arg))])
+    (lambda (arg-value)
+      (let ([actual-env (if (and arg-value arg-name)
+                            (bind-env arg-name arg-value env)
+                            env)])
+          (eval-expr fun-body actual-env)))))
 
 (define (eval-if payload env)
   (let ([condition (car payload)]
@@ -87,17 +99,9 @@
   (let* ([fun-expr (car payload)]
          [arg-value (cadr payload)]
          [fun (eval-expr fun-expr env)])
-    (if (equal? (car fun) 'fun)
-        (let* ([fun-arg (cadr fun)] ; maybe false
-               [arg-name (and fun-arg (extract-ident fun-arg))]
-               [fun-body (caddr fun)])
-           (if (and arg-value arg-name)
-             ; call has arg, and function takes one
-             (eval-expr fun-body (bind-env arg-name arg-value env))
-             ; no arg, or arg ignored
-             ; best of luck
-             (eval-expr fun-body env)))
-        (error "trying to call non-function"))))
+    (if (procedure? fun)
+        (fun (and arg-value (eval-expr arg-value env)))
+        (error (format "trying to call non-function ~a" fun)))))
 
 (module+ test
   (check-equal? (eval-expr '(ident "f")
@@ -134,4 +138,11 @@
                            (eval-toplevel (parse-string "let g = fun() (17) end")))
                 17
                 "fun call no args")
+
+  (check-equal? (eval-expr '(funcall (ident "g") #f)
+                           (eval-toplevel (parse-string
+                                           "def h(x) fun() x end end
+                                            let g = h(19)"))) ; g = fun() 19 end
+                19
+                "closure")
 )
