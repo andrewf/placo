@@ -7,4 +7,4 @@
 
 (define env (eval-toplevel (parse (current-input-port)) prelude-env))
 
-(eval-expr '(funcall (ident "main") #f) env)
+(eval-expr (funcall (ident "main") #f) env)

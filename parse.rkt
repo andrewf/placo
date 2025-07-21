@@ -31,6 +31,24 @@
             curr))))
 )
 
+(struct funcall (fun arg) #:transparent)
+(struct fundef (arg body) #:transparent)
+(struct ident (name) #:transparent)
+(struct ifexpr (condition true else) #:transparent)
+(struct toplevel-let (name value) #:transparent)
+(struct toplevel-def (name value) #:transparent)
+(struct lit (value) #:transparent)
+
+(provide funcall fundef ident ifexpr toplevel-let toplevel-def lit
+         funcall? fundef? ident? ifexpr? toplevel-let? toplevel-def? lit?
+         funcall-fun funcall-arg
+         fundef-arg fundef-body
+         ident-name
+         ifexpr-condition ifexpr-true ifexpr-else
+         toplevel-let-name toplevel-let-value
+         toplevel-def-name toplevel-def-value
+         lit-value)
+
 (require 'tokens)
 
 ; if parser parses, return its result, else error
@@ -77,7 +95,7 @@
 (define (parse-ident s)
   (let ([peek (token-stream-current s)])
     (if (equal? (token-kind peek) 'symbolic)
-        (list 'ident (token-text (advance s)))
+        (ident (token-text (advance s)))
         #f)))
 
 (define (parse-toplevel-def s)
@@ -90,7 +108,7 @@
             [close-paren (expect (op-matcher ")") s "expected ) after arg or (")]
             [body (expect parse-expr s "expected body after )")]
             [end-kw (expect (sym-matcher "end") s "expected 'end' after fn body")])
-        (list 'def id arg body))
+        (toplevel-def id (fundef arg body)))
       #f))
 
 (define (parse-toplevel-let s)
@@ -101,7 +119,7 @@
                               s
                               "expected = after let id")]
             [bound-value (expect parse-expr s "expected expression after =")])
-        (list 'let n bound-value))
+        (toplevel-let n bound-value))
       #f))
 
 (define (parse-expr s)
@@ -120,7 +138,7 @@
   (if ((op-matcher "(") s)
       (let ([arg (parse-expr s)]
             [close-paren (expect (op-matcher ")") s "expected ) after arg or ( of fun call")])
-        (let ([result (list 'funcall prefix arg)])
+        (let ([result (funcall prefix arg)])
           ; might have another postfix after this
           (or (expr-postfix s result) result)))
       #f))
@@ -132,13 +150,13 @@
             [close-paren (expect (op-matcher ")") s "expected ) after arg or (")]
             [body (expect parse-expr s "expected body after )")]
             [end-kw (expect (sym-matcher "end") s "expected 'end' after fn body")])
-        (list 'fun arg body))
+        (fundef arg body))
       #f))
 
 (define (parse-lit s)
   (let ([n ((match-token (lambda (t) (equal? (token-kind t) 'numeric))) s)])
     (if n
-        (list 'lit (token-text n))
+        (lit (token-text n))
         #f)))
 
 (define (parse-paren-expr s)
@@ -159,7 +177,7 @@
             [body (expect parse-expr s "expected body of conditional after then")]
             [else (else-clause s)]
             [endkw (expect (sym-matcher "end") s "expected end at end of if expression")])
-        (list 'if condition body else))
+        (ifexpr condition body else))
       #f))
 
 (module+ test
@@ -170,55 +188,55 @@
               '())
 
 (check-equal? (parse (open-input-string "def cd(a) 42 end"))
-              '((def (ident "cd") (ident "a") (lit 42))))
+              `(,(toplevel-def (ident "cd") (fundef (ident "a") (lit 42)))))
 
 (check-equal? (parse (open-input-string "def cd() 42 end"))
-              '((def (ident "cd") #f (lit 42))))
+              `(,(toplevel-def (ident "cd") (fundef #f (lit 42)))))
 
 (check-equal? (parse (open-input-string "def cd( a) 42 end def fred(z) 13 end"))
-              '((def (ident "cd") (ident "a") (lit 42))
-                (def (ident "fred") (ident "z") (lit 13))))
+              `(,(toplevel-def (ident "cd") (fundef (ident "a") (lit 42)))
+                ,(toplevel-def (ident "fred") (fundef (ident "z") (lit 13)))))
 
 (check-equal? (parse (open-input-string "let abc=42"))
-              '((let (ident "abc") (lit 42))))
+              `(,(toplevel-let (ident "abc") (lit 42))))
 
 (check-equal? (parse (open-input-string "let abc=42"))
-              '((let (ident "abc") (lit 42))))
+              `(,(toplevel-let (ident "abc") (lit 42))))
 
 (check-equal? (parse (open-input-string "let abc=(3) let x=3"))
-              '((let (ident "abc") (lit 3)) ; paren-expr unwraps itself
-                (let (ident "x") (lit 3))))
+              `(,(toplevel-let (ident "abc") (lit 3)) ; paren-expr unwraps itself
+                ,(toplevel-let (ident "x") (lit 3))))
 
 (check-equal? (parse (open-input-string "let abc= if x then (3) end let x=3"))
-              '((let (ident "abc") (if (ident "x") (lit 3) #f))
-                (let (ident "x") (lit 3))))
+              `(,(toplevel-let (ident "abc") (ifexpr (ident "x") (lit 3) #f))
+                ,(toplevel-let (ident "x") (lit 3))))
 
 (check-equal? (parse (open-input-string "let abc= ( (( x) ))"))
-              '((let (ident "abc") (ident "x"))))
+              `(,(toplevel-let (ident "abc") (ident "x"))))
 
 (check-equal? (parse (open-input-string "let abc= if x then (3) else if 4 then ( ( (x) ) ) end end let x=3"))
-              '((let (ident "abc") (if (ident "x") (lit 3)
-                                       (if (lit 4) (ident "x") #f)))
-                (let (ident "x") (lit 3))))
+              `(,(toplevel-let (ident "abc") (ifexpr (ident "x") (lit 3)
+                                       (ifexpr (lit 4) (ident "x") #f)))
+                ,(toplevel-let (ident "x") (lit 3))))
 
 (check-equal? (parse (open-input-string "let abc= fun (x) if x then 3 else 4 end end"))
-              '((let (ident "abc")
-                  (fun (ident "x")
-                       (if (ident "x")
-                           (lit 3)
-                           (lit 4))))))
+              `(,(toplevel-let (ident "abc")
+                  (fundef (ident "x")
+                          (ifexpr (ident "x")
+                                  (lit 3)
+                                  (lit 4))))))
 
 (check-equal? (parse (open-input-string "let abc = f (( 4 ))"))
-              '((let (ident "abc") (funcall (ident "f") (lit 4)))))
+              `(,(toplevel-let (ident "abc") (funcall (ident "f") (lit 4)))))
 
 (check-equal? (parse (open-input-string "let abc = f()"))
-              '((let (ident "abc") (funcall (ident "f") #f))))
+              `(,(toplevel-let (ident "abc") (funcall (ident "f") #f))))
 
 (check-equal? (parse-string "let abc = f(1)(2)")
-              '((let (ident "abc") (funcall (funcall (ident "f") (lit 1)) (lit 2))))
+              `(,(toplevel-let (ident "abc") (funcall (funcall (ident "f") (lit 1)) (lit 2))))
               "nested/repeated funcall")
 
 (check-equal? (parse-string "let abc = f(1)(2)(3)")
-              '((let (ident "abc") (funcall (funcall (funcall (ident "f") (lit 1)) (lit 2)) (lit 3))))
+              `(,(toplevel-let (ident "abc") (funcall (funcall (funcall (ident "f") (lit 1)) (lit 2)) (lit 3))))
               "nested/repeated funcall, nest harder")
 )
