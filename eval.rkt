@@ -1,6 +1,7 @@
 #lang racket
 
-(provide eval-toplevel eval-expr)
+(provide eval-toplevel eval-expr
+         bind-env empty-env)
 
 (require "parse.rkt")
 

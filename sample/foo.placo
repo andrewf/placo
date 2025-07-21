@@ -1,0 +1,7 @@
+let x = 4
+def g()
+  print(x)
+end
+def main()
+  g()
+end
