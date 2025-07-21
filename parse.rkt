@@ -107,7 +107,7 @@
 
 (define (expr-postfix s prefix)
   (if ((op-matcher "(") s)
-      (let ([arg (expect expr s "expected expression after ( of fun call")]
+      (let ([arg (expr s)]
             [close-paren (expect (op-matcher ")") s "expected ) after arg or ( of fun call")])
         (let ([result (list 'funcall prefix arg)])
           ; might have another postfix after this
@@ -167,7 +167,6 @@
 (check-equal? (parse (open-input-string "def cd(a) 42 end"))
               '((def (ident "cd") (ident "a") (lit 42))))
 
-; lexer is stupid, so space between parens is mandatory
 (check-equal? (parse (open-input-string "def cd() 42 end"))
               '((def (ident "cd") #f (lit 42))))
 
@@ -206,6 +205,9 @@
 
 (check-equal? (parse (open-input-string "let abc = f (( 4 ))"))
               '((let (ident "abc") (funcall (ident "f") (lit 4)))))
+
+(check-equal? (parse (open-input-string "let abc = f()"))
+              '((let (ident "abc") (funcall (ident "f") #f))))
 
 (check-equal? (parse-string "let abc = f(1)(2)")
               '((let (ident "abc") (funcall (funcall (ident "f") (lit 1)) (lit 2))))
