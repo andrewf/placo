@@ -109,7 +109,9 @@
   (if ((op-matcher "(") s)
       (let ([arg (expect expr s "expected expression after ( of fun call")]
             [close-paren (expect (op-matcher ")") s "expected ) after arg or ( of fun call")])
-        (list 'funcall prefix arg))
+        (let ([result (list 'funcall prefix arg)])
+          ; might have another postfix after this
+          (or (expr-postfix s result) result)))
       #f))
 
 (define (fun-expr s)
@@ -204,4 +206,12 @@
 
 (check-equal? (parse (open-input-string "let abc = f (( 4 ))"))
               '((let (ident "abc") (funcall (ident "f") (lit 4)))))
+
+(check-equal? (parse-string "let abc = f(1)(2)")
+              '((let (ident "abc") (funcall (funcall (ident "f") (lit 1)) (lit 2))))
+              "nested/repeated funcall")
+
+(check-equal? (parse-string "let abc = f(1)(2)(3)")
+              '((let (ident "abc") (funcall (funcall (funcall (ident "f") (lit 1)) (lit 2)) (lit 3))))
+              "nested/repeated funcall, nest harder")
 )
