@@ -55,21 +55,26 @@
 (define (expect parser s errmsg)
   (or (parser s) (error errmsg)))
 
-; call parser for as many times as it succeeds,
+; return new parser that
+; calls passed parser for as many times as it succeeds,
 ; return list of results
 ; return '() if first parse fails
-(define (repeated parser s)
-  (let ([r (parser s)])
-    (if r
-      (cons r (repeated parser s))
-      '())))
+(define (repeated parser)
+  ; need to use define to let p be recursive
+  (define (p s)
+    (let ([r (parser s)])
+      (if r
+          (cons r (p s))
+          '())))
+    p)
 
-; list of at least one result of parser, or false
+; list of at least one result of parser,
+; or false if first parse fails
 (define (repeated+ parser)
   (lambda (s)
     (let ([r (parser s)])
       (if r
-          (cons r (repeated parser s))
+          (cons r ((repeated parser) s))
           #f))))
 
 ; create a parser that matches and returns a token or fails
@@ -97,7 +102,7 @@
 
 ; return #f or list of top-level def 
 (define (parse-toplevel s)
-  (let ([r (repeated parse-toplevel-item s)])
+  (let ([r ((repeated parse-toplevel-item) s)])
   (if (end-token? (token-stream-current s))
       r
       (error "failed to parse top-level item, expected def or let"))))
@@ -122,7 +127,7 @@
       ; commit to the parse
       (let ([id (expect parse-ident s "expected ident after def")]
             [open-paren (expect (op-matcher "(") s "expected ( after fn name")]
-            [args (repeated parse-ident s)]
+            [args ((repeated parse-ident) s)]
             [close-paren (expect (op-matcher ")") s "expected ) after arg or (")]
             [body (expect (repeated+ parse-expr) s "expected body after )")]
             [end-kw (expect (sym-matcher "end") s "expected 'end' after fn body")])
@@ -154,7 +159,7 @@
 
 (define (expr-postfix s prefix)
   (if ((op-matcher "(") s)
-      (let ([args (repeated parse-expr s)]
+      (let ([args ((repeated parse-expr) s)]
             [close-paren (expect (op-matcher ")") s "expected ) after arg or ( of fun call")])
         (let ([result (funcall prefix args)])
           ; might have another postfix after this
@@ -164,7 +169,7 @@
 (define (parse-fundef s)
   (if ((sym-matcher "fun") s)
       (let ([open-paren (expect (op-matcher "(") s "expected ( after fun keyword")]
-            [args (repeated parse-ident s)]
+            [args ((repeated parse-ident) s)]
             [close-paren (expect (op-matcher ")") s "expected ) after arg or (")]
             [body (expect (repeated+ parse-expr) s "expected body after )")]
             [end-kw (expect (sym-matcher "end") s "expected 'end' after fn body")])
