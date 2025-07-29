@@ -6,7 +6,7 @@
 
 (define env (eval-toplevel parsed
                            (bind-env "print" (lambda (x) (printf "~a\n" (car x)))
-                                     (bind-env "plus" (lambda (rhs) (lambda (lhs) (+ (car rhs) (car lhs))))
+                                     (bind-env "plus" (lambda (args) (+ (car args) (cadr args)))
                                                (empty-env)))))
 
 (eval-expr (funcall (ident "main") '()) env)
