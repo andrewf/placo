@@ -29,6 +29,18 @@
 (define (bind-env var value env)
   (cons (cons var value) env))
 
+; bind-env but multiple times
+; zip arg-names and arg-values
+(define (bind-env-names arg-names arg-values env)
+  (cond
+    [(and (empty? arg-names) (empty? arg-values))
+     env]
+    [(and (not (empty? arg-names)) (not (empty? arg-values)))
+     (bind-env-names (cdr arg-names)
+                     (cdr arg-values)
+                     (bind-env (car arg-names) (car arg-values) env))]
+    [else (error ("mismatching argument lengths"))]))
+
 ; evaluate a toplevel into an env itself
 (define (eval-toplevel parsed [starting-env (empty-env)])
   (let loopy ([toplevel-remaining parsed]
@@ -65,13 +77,11 @@
 (define (eval-fundef expr env)
   ; just need to capture lexical context
   ; we can do that with closure in host language. lol.
-  (let* ([fun-arg (fundef-arg expr)]
+  (let* ([fun-args (fundef-args expr)]
          [fun-body (fundef-body expr)]
-         [arg-name (and fun-arg (ident-name fun-arg))])
-    (lambda (arg-value)
-      (let ([actual-env (if (and arg-value arg-name)
-                            (bind-env arg-name arg-value env)
-                            env)])
+         [arg-names (map ident-name fun-args)])
+    (lambda (arg-values)
+      (let ([actual-env (bind-env-names arg-names arg-values env)])
           (eval-expr fun-body actual-env)))))
 
 (define (eval-if expr env)
@@ -87,10 +97,11 @@
 
 (define (eval-funcall payload env)
   (let* ([fun-expr (funcall-fun payload)]
-         [arg-value (funcall-arg payload)]
+         [arg-exprs (funcall-args payload)]
+         [arg-values (map (lambda (arg) (eval-expr arg env)) arg-exprs)]
          [fun (eval-expr fun-expr env)])
     (if (procedure? fun)
-        (fun (and arg-value (eval-expr arg-value env)))
+        (fun arg-values)
         (error (format "trying to call non-function ~a" fun)))))
 
 (module+ test
@@ -124,15 +135,23 @@
                 42
                 "basic fun call")
 
-  (check-equal? (eval-expr (funcall (ident "g") #f)
+  (check-equal? (eval-expr (funcall (ident "g") '())
                            (eval-toplevel (parse-string "let g = fun() (17) end")))
                 17
                 "fun call no args")
 
-  (check-equal? (eval-expr (funcall (ident "g") #f)
+  (check-equal? (eval-expr (funcall (ident "g") '())
                            (eval-toplevel (parse-string
                                            "def h(x) fun() x end end
                                             let g = h(19)"))) ; g = fun() 19 end
                 19
                 "closure")
+
+  (check-equal? (eval-expr (funcall (ident "g") (list (lit 3) (ident "x")))
+                           (eval-toplevel (parse-string
+                                           "def h(x) fun(a b) b end end
+                                            let x = 5
+                                            let g = h(19)"))) ; g = fun(a b) b end
+                5
+                "multiple args")
 )
