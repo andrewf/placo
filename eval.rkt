@@ -74,6 +74,17 @@
      (eval-fundef expr env)]
     [else (error (format "invalid expression ~a" expr))]))
 
+; eval a list of exprs, return last value
+(define (eval-expr-list exprs env)
+  (if (empty? exprs)
+      (error "need at least one expression to evaluate")
+      (if (empty? (cdr exprs))
+          ; actual base case is last element of non-empty list
+          (eval-expr (car exprs) env)
+          (begin
+            (eval-expr (car exprs) env)  ; eval for side-effects, presumably
+            (eval-expr-list (cdr exprs) env)))))
+
 (define (eval-fundef expr env)
   ; just need to capture lexical context
   ; we can do that with closure in host language. lol.
@@ -82,7 +93,7 @@
          [arg-names (map ident-name fun-args)])
     (lambda (arg-values)
       (let ([actual-env (bind-env-names arg-names arg-values env)])
-          (eval-expr fun-body actual-env)))))
+          (eval-expr-list fun-body actual-env)))))
 
 (define (eval-if expr env)
   (let ([condition (ifexpr-condition expr)]
@@ -139,6 +150,11 @@
                            (eval-toplevel (parse-string "let g = fun() (17) end")))
                 17
                 "fun call no args")
+
+  (check-equal? (eval-expr (funcall (ident "g") '())
+                           (eval-toplevel (parse-string "let g = fun() if 4 then 3 else 5 end 42 end")))
+                42
+                "fun call multiple body expressions")
 
   (check-equal? (eval-expr (funcall (ident "g") '())
                            (eval-toplevel (parse-string

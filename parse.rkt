@@ -64,6 +64,14 @@
       (cons r (repeated parser s))
       '())))
 
+; list of at least one result of parser, or false
+(define (repeated+ parser)
+  (lambda (s)
+    (let ([r (parser s)])
+      (if r
+          (cons r (repeated parser s))
+          #f))))
+
 ; create a parser that matches and returns a token or fails
 (define (match-token pred)
   (lambda (s)
@@ -99,9 +107,12 @@
       (parse-toplevel-let s)
       #f))
 
+(define reserved-words (list "def" "end" "fun" "if" "let" "then"))
+
 (define (parse-ident s)
   (let ([peek (token-stream-current s)])
-    (if (equal? (token-kind peek) 'symbolic)
+    (if (and (equal? (token-kind peek) 'symbolic)
+             (not (member (token-text peek) reserved-words)))
         (ident (token-text (advance s)))
         #f)))
 
@@ -113,7 +124,7 @@
             [open-paren (expect (op-matcher "(") s "expected ( after fn name")]
             [args (repeated parse-ident s)]
             [close-paren (expect (op-matcher ")") s "expected ) after arg or (")]
-            [body (expect parse-expr s "expected body after )")]
+            [body (expect (repeated+ parse-expr) s "expected body after )")]
             [end-kw (expect (sym-matcher "end") s "expected 'end' after fn body")])
         (toplevel-def id (fundef args body)))
       #f))
@@ -155,7 +166,7 @@
       (let ([open-paren (expect (op-matcher "(") s "expected ( after fun keyword")]
             [args (repeated parse-ident s)]
             [close-paren (expect (op-matcher ")") s "expected ) after arg or (")]
-            [body (expect parse-expr s "expected body after )")]
+            [body (expect (repeated+ parse-expr) s "expected body after )")]
             [end-kw (expect (sym-matcher "end") s "expected 'end' after fn body")])
         (fundef args body))
       #f))
@@ -195,14 +206,14 @@
               '())
 
 (check-equal? (parse (open-input-string "def cd(a) 42 end"))
-              `(,(toplevel-def (ident "cd") (fundef (list (ident "a")) (lit 42)))))
+              `(,(toplevel-def (ident "cd") (fundef (list (ident "a")) (list (lit 42))))))
 
 (check-equal? (parse (open-input-string "def cd() 42 end"))
-              `(,(toplevel-def (ident "cd") (fundef '() (lit 42)))))
+              `(,(toplevel-def (ident "cd") (fundef '() (list (lit 42))))))
 
 (check-equal? (parse (open-input-string "def cd( a) 42 end def fred(z) 13 end"))
-              `(,(toplevel-def (ident "cd") (fundef (list (ident "a")) (lit 42)))
-                ,(toplevel-def (ident "fred") (fundef (list (ident "z")) (lit 13)))))
+              `(,(toplevel-def (ident "cd") (fundef (list (ident "a")) (list (lit 42))))
+                ,(toplevel-def (ident "fred") (fundef (list (ident "z")) (list (lit 13))))))
 
 (check-equal? (parse (open-input-string "let abc=42"))
               `(,(toplevel-let (ident "abc") (lit 42))))
@@ -229,9 +240,9 @@
 (check-equal? (parse (open-input-string "let abc= fun (x) if x then 3 else 4 end end"))
               `(,(toplevel-let (ident "abc")
                   (fundef (list (ident "x"))
-                          (ifexpr (ident "x")
-                                  (lit 3)
-                                  (lit 4))))))
+                          (list (ifexpr (ident "x")
+                                        (lit 3)
+                                        (lit 4)))))))
 
 (check-equal? (parse (open-input-string "let abc = f (( 4 ))"))
               `(,(toplevel-let (ident "abc") (funcall (ident "f") (list (lit 4))))))
