@@ -17,7 +17,7 @@
 
 (define (lookup env var)
   (if (empty? env)
-      (error "missing-var")
+      (error (format "missing var ~a" var))
       (let* ([curr-binding (car env)]
              [parent-env (cdr env)]
              [curr-var (car curr-binding)]
