@@ -5,8 +5,74 @@
 
 (require "parse.rkt")
 
-(module+ test
-  (require rackunit))
+(struct visitor (funcall
+                 fundef
+                 ifexpr
+                 lit
+                 ident))
+
+; eval a list of exprs, return last value
+(define (visit-expr-list exprs env v)
+  (if (empty? exprs)
+      (error "need at least one expression to evaluate")
+      (if (empty? (cdr exprs))
+          ; actual base case is last element of non-empty list
+          (visit-expr (car exprs) env v)
+          (begin
+            (visit-expr (car exprs) env v)  ; eval for side-effects, presumably
+            (visit-expr-list (cdr exprs) env v)))))
+
+(define (visit-expr syntax env v)
+  (cond
+    [(funcall? syntax)
+     ((visitor-funcall v)
+      (visit-expr (funcall-fun syntax) env v)
+      (map (lambda (arg-expr) (visit-expr arg-expr env v))
+           (funcall-args syntax))
+      env v)]
+    [(fundef? syntax)
+     (visit-fundef syntax env v)]
+    [(ifexpr? syntax)
+     ; eagerly eval condition, pass branches as thunks env->result
+     ((visitor-ifexpr v)
+      (visit-expr (ifexpr-condition syntax) env v)
+      (lambda (env) (visit-expr (ifexpr-true syntax) env v))
+      (if (ifexpr-else syntax)
+          (lambda (env) (visit-expr (ifexpr-else syntax) env v))
+          #f)
+      env v)]
+    [(lit? syntax)
+     ((visitor-lit v) (lit-value syntax) env v)]
+    [(ident? syntax)
+     ((visitor-ident v) (ident-name syntax) env v)]
+    [else (error (format "invalid expression: ~v" syntax))]))
+
+(define (visit-fundef syntax env v)
+  ; body as thunk env->result
+  ((visitor-fundef v)
+   (map ident-name (fundef-args syntax))
+   (lambda (env) (visit-expr-list (fundef-body syntax) env v))
+   env v))
+
+; evaluate a toplevel into an env itself
+; take for granted the usual toplevel scoping logic
+(define (visit-toplevel syntax env v)
+  (let loopy ([toplevel-remaining syntax]
+              [curr-env env])
+    (if (empty? toplevel-remaining)
+        curr-env  ; done
+        (let* ([item (car toplevel-remaining)])
+          (cond
+            [(toplevel-let? item)
+             (let* ([var   (ident-name (toplevel-let-name item))]
+                    [value (visit-expr (toplevel-let-value item) curr-env v)])
+               (loopy (cdr toplevel-remaining)
+                      (bind-env var value curr-env)))]
+            [(toplevel-def? item)
+             (let* ([id (ident-name (toplevel-def-name item))]
+                    [f (toplevel-def-value item)])
+               (loopy (cdr toplevel-remaining)
+                      (bind-env id (visit-fundef f curr-env v) curr-env)))])))))
 
 (define (falsy t)
   (and (integer? t) (= t 0)))
@@ -41,79 +107,48 @@
                      (bind-env (car arg-names) (car arg-values) env))]
     [else (error ("mismatching argument lengths"))]))
 
-; evaluate a toplevel into an env itself
-(define (eval-toplevel parsed [starting-env (empty-env)])
-  (let loopy ([toplevel-remaining parsed]
-              [curr-env starting-env])
-    (if (empty? toplevel-remaining)
-        curr-env  ; done
-        (let* ([item (car toplevel-remaining)])
-          (cond
-            [(toplevel-let? item)
-             (let* ([var   (ident-name (toplevel-let-name item))]
-                    [value (eval-expr (toplevel-let-value item) curr-env)])
-               (loopy (cdr toplevel-remaining)
-                      (bind-env var value curr-env)))]
-            [(toplevel-def? item)
-             (let* ([id (ident-name (toplevel-def-name item))]
-                    [f (toplevel-def-value item)])
-               (loopy (cdr toplevel-remaining)
-                      (bind-env id (eval-fundef f curr-env) curr-env)))])))))
-
-(define (eval-expr expr env)
-  (cond
-    [(ident? expr)
-     (lookup env (ident-name expr))]
-    [(lit? expr)
-     (lit-value expr)]
-    [(ifexpr? expr)
-     (eval-if expr env)]
-    [(funcall? expr)
-     (eval-funcall expr env)]
-    [(fundef? expr)
-     (eval-fundef expr env)]
-    [else (error (format "invalid expression ~a" expr))]))
-
-; eval a list of exprs, return last value
-(define (eval-expr-list exprs env)
-  (if (empty? exprs)
-      (error "need at least one expression to evaluate")
-      (if (empty? (cdr exprs))
-          ; actual base case is last element of non-empty list
-          (eval-expr (car exprs) env)
-          (begin
-            (eval-expr (car exprs) env)  ; eval for side-effects, presumably
-            (eval-expr-list (cdr exprs) env)))))
-
-(define (eval-fundef expr env)
-  ; just need to capture lexical context
-  ; we can do that with closure in host language. lol.
-  (let* ([fun-args (fundef-args expr)]
-         [fun-body (fundef-body expr)]
-         [arg-names (map ident-name fun-args)])
-    (lambda (arg-values)
-      (let ([actual-env (bind-env-names arg-names arg-values env)])
-          (eval-expr-list fun-body actual-env)))))
-
-(define (eval-if expr env)
-  (let ([condition (ifexpr-condition expr)]
-        [true-branch (ifexpr-true expr)]
-        [else-branch (ifexpr-else expr)])
-    (if (truthy (eval-expr condition env))
-        (eval-expr true-branch env)
-        (if else-branch
-            (eval-expr else-branch env)
-            ; empty else case
-            'no-else))))
-
-(define (eval-funcall payload env)
-  (let* ([fun-expr (funcall-fun payload)]
-         [arg-exprs (funcall-args payload)]
-         [arg-values (map (lambda (arg) (eval-expr arg env)) arg-exprs)]
-         [fun (eval-expr fun-expr env)])
+(define (eval-visit-funcall fun arg-values env v)
     (if (procedure? fun)
         (fun arg-values)
-        (error (format "trying to call non-function ~a" fun)))))
+        (error (format "trying to call non-function ~a" fun))))
+
+(define (eval-visit-fundef arg-names body-thunk env-at-def v)
+  ; just need to capture lexical context
+  ; we can do that with closure in host language. lol.
+    (lambda (arg-values)
+      (let ([actual-env (bind-env-names arg-names arg-values env-at-def)])
+          (body-thunk actual-env))))
+
+(define (eval-visit-ifexpr condition true-branch else-branch env v)
+    (if (truthy condition)
+        (true-branch env)
+        (if else-branch
+            (else-branch env)
+            ; empty else case
+            'no-else)))
+
+(define (eval-visit-lit value env v)
+  value)
+
+(define (eval-visit-ident name env v)
+  (lookup env name))
+
+(define eval-visitor (visitor
+                      eval-visit-funcall
+                      eval-visit-fundef
+                      eval-visit-ifexpr
+                      eval-visit-lit
+                      eval-visit-ident))
+
+(define (eval-expr expr env)
+  (visit-expr expr env eval-visitor))
+
+(define (eval-toplevel expr [starting-env (empty-env)])
+  (visit-toplevel expr starting-env eval-visitor))
+
+
+(module+ test
+  (require rackunit))
 
 (module+ test
   (check-equal? (eval-expr (ident "f")
