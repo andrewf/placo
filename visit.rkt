@@ -75,36 +75,76 @@
                       (bind-env id (visit-fundef f curr-env v) curr-env)))])))))
 
 (module+ main
-  (define (print-funcall fun-result arg-result env visitor)
-    (format "~a ~a" fun-result arg-result))
+
+  (define (get-depth env)
+    (if (empty? env)
+        0
+        (if (equal? (car (car env)) 'depth-key)
+            (cdr (car env))
+            (get-depth env))))
+
+  (define (set-depth value env)
+    (bind-env 'depth-key value env))
+
+  (define (incr n) (+ n 1))
+
+  (define (indent n) (make-string (* 2 n) #\space))
+
+  (define (print-funcall fun-result arg-results env visitor)
+    (lambda (out depth)
+      (display (indent depth) out)
+      (fun-result out depth)
+      (display "(" out)
+      (map (lambda (x) (x out depth)) arg-results)
+      (display ")\n" out)
+      ))
+
   (define (print-fundef args body-thunk env v)
-    (format "fun ~a ~a end" args (body-thunk env)))
+    (lambda (out depth)
+      (display (format "fun ~a\n" args) out)
+      ((body-thunk env) out (incr depth))
+      (display (format "\n~aend\n" (indent depth)) out)))
+
   (define (print-ifexpr cond-result true-thunk else-thunk-or-false env v)
-    (let ((else-result (if (false? else-thunk-or-false)
-                           ""
-                           (string-append "else " (else-thunk-or-false env)))))
-      (format "if(~a) ~a ~a" cond-result (true-thunk env) else-result)))
+    (lambda (out depth)
+        (display (format "~aif(" (indent depth)) out)
+        (cond-result out depth)
+        (display ") then\n" out)
+        ((true-thunk env) out (incr depth))
+        (if (not (false? else-thunk-or-false))
+            (begin
+              (display (format  "\n~aelse\n" (indent depth)) out)
+              ((else-thunk-or-false env) out (incr depth)))
+            (void))
+        (display (format "\n~aend" (indent depth)) out)))
+
   (define (print-lit lit-value env v)
-    (format "~a" lit-value))
+    (lambda (out depth) (display (format "~a " lit-value) out)))
+
   (define (print-ident name env v)
-    (format "~a" name))
+    (lambda (out depth) (display (format "~a " name) out)))
 
   (define printer (visitor print-funcall
                            print-fundef
                            print-ifexpr
                            print-lit
                            print-ident
-                           (lambda () "")
-                           (lambda (expr-result acc) (string-append acc expr-result))
+                           (lambda () (lambda (out depth) (void)))
+                           (lambda (expr-result acc)
+                             (lambda (out depth)
+                               (acc out depth)
+                               (expr-result out depth)))
                            ))
 
-  (define parsed (parse (open-input-string "let abc = if x then (3) else print(5) end let x= fun(z) print(3) plus(3 2) end let t = 2")))
+  (define parsed (parse (open-input-string "let abc = if x then (3) else print(5) end let x= fun(z) print(3) plus(3 plus(2 1)) end let t = 2")))
   (define toplevel-result (visit-toplevel parsed '() printer))
   (let loop ((remaining toplevel-result))
     (if (not (empty? remaining))
         (let ((curr (car remaining)))
           (loop (cdr remaining))
-          (println (format "let ~a = ~a" (car curr) (cdr curr))))
+          (display (format "let ~a = " (car curr)))
+          ((cdr curr) (current-output-port) 0)
+          (display "\n"))
         #f))
 
 )
