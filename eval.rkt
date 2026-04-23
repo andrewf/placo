@@ -1,7 +1,9 @@
 #lang racket
 
-(provide eval-toplevel eval-expr
-         bind-env empty-env)
+(provide eval-toplevel
+         eval-expr
+         bind-env
+         empty-env)
 
 (require "parse.rkt" "visit.rkt" "env.rkt")
 
@@ -36,12 +38,18 @@
 (define (eval-visit-ident name env v)
   (lookup env name))
 
+(define (eval-visit-expr-list-init) '())
+
+(define (eval-visit-reduce-expr-list expr-result acc) expr-result) ; only keep latest result
+
 (define eval-visitor (visitor
                       eval-visit-funcall
                       eval-visit-fundef
                       eval-visit-ifexpr
                       eval-visit-lit
-                      eval-visit-ident))
+                      eval-visit-ident
+                      eval-visit-expr-list-init
+                      eval-visit-reduce-expr-list))
 
 (define (eval-expr expr env)
   (visit-expr expr env eval-visitor))

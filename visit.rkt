@@ -4,22 +4,23 @@
 
 (require "parse.rkt" "env.rkt")
 
-(struct visitor (funcall
-                 fundef
-                 ifexpr
-                 lit
-                 ident))
+(struct visitor (funcall ; (fun-result arg-results env v) -> result
+                 fundef  ; (fundef? env v) -> result
+                 ifexpr  ; (cond-result true-thunk else-thunk-or-false env v) -> result
+                 lit     ; (lit-value env v) -> result
+                 ident   ; (name env v)
+                 expr-list-init    ; () -> acc, initial acc for reduce-expr-list
+                 reduce-expr-list  ; (expr-result acc) -> acc
+                 ))
 
-; eval a list of exprs, return last value
+; eval a list of exprs, accumulating results into an accumulator via reduce-expr-list
 (define (visit-expr-list exprs env v)
-  (if (empty? exprs)
-      (error "need at least one expression to evaluate")
-      (if (empty? (cdr exprs))
-          ; actual base case is last element of non-empty list
-          (visit-expr (car exprs) env v)
-          (begin
-            (visit-expr (car exprs) env v)  ; eval for side-effects, presumably
-            (visit-expr-list (cdr exprs) env v)))))
+  (let* ((reducer (visitor-reduce-expr-list v))
+         (init-value ((visitor-expr-list-init v)))
+         (actual-reduce (lambda (expr-syntax acc)
+                          (reducer (visit-expr expr-syntax env v)
+                                   acc))))
+    (foldl actual-reduce init-value exprs)))
 
 (define (visit-expr syntax env v)
   (cond
@@ -72,3 +73,38 @@
                    [f (toplevel-def-value item)])
                (loopy (cdr toplevel-remaining)
                       (bind-env id (visit-fundef f curr-env v) curr-env)))])))))
+
+(module+ main
+  (define (print-funcall fun-result arg-result env visitor)
+    (format "~a ~a" fun-result arg-result))
+  (define (print-fundef args body-thunk env v)
+    (format "fun ~a ~a end" args (body-thunk env)))
+  (define (print-ifexpr cond-result true-thunk else-thunk-or-false env v)
+    (let ((else-result (if (false? else-thunk-or-false)
+                           ""
+                           (string-append "else " (else-thunk-or-false env)))))
+      (format "if(~a) ~a ~a" cond-result (true-thunk env) else-result)))
+  (define (print-lit lit-value env v)
+    (format "~a" lit-value))
+  (define (print-ident name env v)
+    (format "~a" name))
+
+  (define printer (visitor print-funcall
+                           print-fundef
+                           print-ifexpr
+                           print-lit
+                           print-ident
+                           (lambda () "")
+                           (lambda (expr-result acc) (string-append acc expr-result))
+                           ))
+
+  (define parsed (parse (open-input-string "let abc = if x then (3) else print(5) end let x= fun(z) print(3) plus(3 2) end let t = 2")))
+  (define toplevel-result (visit-toplevel parsed '() printer))
+  (let loop ((remaining toplevel-result))
+    (if (not (empty? remaining))
+        (let ((curr (car remaining)))
+          (loop (cdr remaining))
+          (println (format "let ~a = ~a" (car curr) (cdr curr))))
+        #f))
+
+)
