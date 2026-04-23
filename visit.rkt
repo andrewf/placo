@@ -94,8 +94,9 @@
     (lambda (out depth)
       (display (indent depth) out)
       (fun-result out depth)
-      (display "(" out)
-      (map (lambda (x) (x out depth)) arg-results)
+      (display "(\n" out)
+      (map (lambda (x) (x out (incr depth))) arg-results)
+      (display (indent depth) out)
       (display ")\n" out)
       ))
 
@@ -103,7 +104,7 @@
     (lambda (out depth)
       (display (format "fun ~a\n" args) out)
       ((body-thunk env) out (incr depth))
-      (display (format "\n~aend\n" (indent depth)) out)))
+      (display (format "~aend\n" (indent depth)) out)))
 
   (define (print-ifexpr cond-result true-thunk else-thunk-or-false env v)
     (lambda (out depth)
@@ -113,16 +114,16 @@
         ((true-thunk env) out (incr depth))
         (if (not (false? else-thunk-or-false))
             (begin
-              (display (format  "\n~aelse\n" (indent depth)) out)
+              (display (format  "~aelse\n" (indent depth)) out)
               ((else-thunk-or-false env) out (incr depth)))
             (void))
-        (display (format "\n~aend" (indent depth)) out)))
+        (display (format "~aend\n" (indent depth)) out)))
 
   (define (print-lit lit-value env v)
-    (lambda (out depth) (display (format "~a " lit-value) out)))
+    (lambda (out depth) (display (format "~a~a\n" (indent depth) lit-value) out)))
 
   (define (print-ident name env v)
-    (lambda (out depth) (display (format "~a " name) out)))
+    (lambda (out depth) (display name out)))
 
   (define printer (visitor print-funcall
                            print-fundef
@@ -137,14 +138,13 @@
                            ))
 
   (define parsed (parse (open-input-string "let abc = if x then (3) else print(5) end let x= fun(z) print(3) plus(3 plus(2 1)) end let t = 2")))
-  (define toplevel-result (visit-toplevel parsed '() printer))
+  (define toplevel-result (visit-toplevel parsed (empty-env) printer))
   (let loop ((remaining toplevel-result))
     (if (not (empty? remaining))
         (let ((curr (car remaining)))
           (loop (cdr remaining))
           (display (format "let ~a = " (car curr)))
-          ((cdr curr) (current-output-port) 0)
-          (display "\n"))
+          ((cdr curr) (current-output-port) 0))
         #f))
 
 )
