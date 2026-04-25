@@ -57,9 +57,9 @@
 
 ; evaluate a toplevel a reduced value as
 ; specified by visitor
-(define (visit-toplevel syntax v)
+(define (visit-toplevel syntax v [initial-acc #f])
   (let loopy ([toplevel-remaining syntax]
-              [acc ((visitor-toplevel-init v))])
+              [acc (or initial-acc ((visitor-toplevel-init v)))])
     (if (empty? toplevel-remaining)
         acc  ; done
         (let ([item (car toplevel-remaining)])

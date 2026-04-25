@@ -67,8 +67,8 @@
 (define (eval-expr expr env)
   ((visit-expr expr eval-visitor) env))
 
-(define (eval-toplevel expr)
-  (visit-toplevel expr eval-visitor))
+(define (eval-toplevel expr [starting-env (empty-env)])
+  (visit-toplevel expr eval-visitor starting-env))
 
 
 (module+ test
