@@ -134,9 +134,9 @@
                            ; toplevel reduce
                            (lambda (name item-thunk remaining-thunk)
                              (lambda (out depth)
+                               (remaining-thunk out depth)
                                (display (format "~alet ~a = " (indent depth) name))
                                (item-thunk out depth)
-                               (remaining-thunk out depth)
                              ))
                            ))
 
