@@ -2,13 +2,13 @@
 
 (provide visitor visit-expr visit-toplevel)
 
-(require "parse.rkt" "env.rkt")
+(require "parse.rkt")
 
-(struct visitor (funcall ; (fun-result arg-results env v) -> result
-                 fundef  ; (fundef? env v) -> result
-                 ifexpr  ; (cond-result true-thunk else-thunk-or-false env v) -> result
-                 lit     ; (lit-value env v) -> result
-                 ident   ; (name env v)
+(struct visitor (funcall ; (fun-result arg-results v) -> result
+                 fundef  ; (fundef? v) -> result
+                 ifexpr  ; (cond-result true-thunk else-thunk-or-false v) -> result
+                 lit     ; (lit-value v) -> result
+                 ident   ; (name v)
                  expr-list-init    ; () -> acc, initial acc for reduce-expr-list
                  reduce-expr-list  ; (expr-result acc) -> acc
                  toplevel-init     ; () -> acc
@@ -16,66 +16,65 @@
                  ))
 
 ; eval a list of exprs, accumulating results into an accumulator via reduce-expr-list
-(define (visit-expr-list exprs env v)
+(define (visit-expr-list exprs v)
   (let* ((reducer (visitor-reduce-expr-list v))
          (init-value ((visitor-expr-list-init v)))
          (actual-reduce (lambda (expr-syntax acc)
-                          (reducer (visit-expr expr-syntax env v)
+                          (reducer (visit-expr expr-syntax v)
                                    acc))))
     (foldl actual-reduce init-value exprs)))
 
-(define (visit-expr syntax env v)
+(define (visit-expr syntax v)
   (cond
     [(funcall? syntax)
      ((visitor-funcall v)
-      (visit-expr (funcall-fun syntax) env v)
+      (visit-expr (funcall-fun syntax) v)
       (map (lambda (arg-expr)
-             (visit-expr arg-expr env v))
+             (visit-expr arg-expr v))
            (funcall-args syntax))
-      env v)]
+      v)]
     [(fundef? syntax)
-     (visit-fundef syntax env v)]
+     (visit-fundef syntax v)]
     [(ifexpr? syntax)
      ((visitor-ifexpr v)
-      (visit-expr (ifexpr-condition syntax) env v)
-      (visit-expr (ifexpr-true syntax) env v)
+      (visit-expr (ifexpr-condition syntax) v)
+      (visit-expr (ifexpr-true syntax) v)
       (if (ifexpr-else syntax)
-          (visit-expr (ifexpr-else syntax) env v)
+          (visit-expr (ifexpr-else syntax) v)
           #f)
-      env v)]
+      v)]
     [(lit? syntax)
-     ((visitor-lit v) (lit-value syntax) env v)]
+     ((visitor-lit v) (lit-value syntax) v)]
     [(ident? syntax)
-     ((visitor-ident v) (ident-name syntax) env v)]
+     ((visitor-ident v) (ident-name syntax) v)]
     [else (error (format "invalid expression: ~v" syntax))]))
 
-(define (visit-fundef syntax env v)
-  ; body as thunk env->result
+(define (visit-fundef syntax v)
   ((visitor-fundef v)
    (map ident-name (fundef-args syntax))
-   (visit-expr-list (fundef-body syntax) env v)
-   env v))
+   (visit-expr-list (fundef-body syntax) v)
+   v))
 
-; evaluate a toplevel into an env itself
-; take for granted the usual toplevel scoping logic
-(define (visit-toplevel syntax env v)
+; evaluate a toplevel a reduced value as
+; specified by visitor
+(define (visit-toplevel syntax v)
   (let loopy ([toplevel-remaining syntax]
-              [curr-env ((visitor-toplevel-init v))])
+              [acc ((visitor-toplevel-init v))])
     (if (empty? toplevel-remaining)
-        curr-env  ; done
+        acc  ; done
         (let ([item (car toplevel-remaining)])
           (cond
             [(toplevel-let? item)
              (let ([var   (ident-name (toplevel-let-name item))]
-                   [value (visit-expr (toplevel-let-value item) curr-env v)])
+                   [value (visit-expr (toplevel-let-value item) v)])
                (loopy (cdr toplevel-remaining)
-                      ((visitor-toplevel-reduce v) var value curr-env)))]
+                      ((visitor-toplevel-reduce v) var value acc)))]
             [(toplevel-def? item)
              (let* ([var (ident-name (toplevel-def-name item))]
-                   [f (toplevel-def-value item)]
-                   [value (visit-fundef f curr-env v)])
+                   [fun (toplevel-def-value item)]
+                   [value (visit-fundef fun v)])
                (loopy (cdr toplevel-remaining)
-                      ((visitor-toplevel-reduce v) var value curr-env)))])))))
+                      ((visitor-toplevel-reduce v) var value acc)))])))))
 
 (module+ main
 
@@ -83,7 +82,7 @@
 
   (define (indent n) (make-string (* 2 n) #\space))
 
-  (define (print-funcall fun-result arg-results env visitor)
+  (define (print-funcall fun-result arg-results visitor)
     (lambda (out depth)
       (display (indent depth) out)
       (fun-result out depth)
@@ -93,13 +92,13 @@
       (display ")\n" out)
       ))
 
-  (define (print-fundef args body-thunk env v)
+  (define (print-fundef args body-thunk v)
     (lambda (out depth)
       (display (format "fun ~a\n" args) out)
       (body-thunk out (incr depth))
       (display (format "~aend\n" (indent depth)) out)))
 
-  (define (print-ifexpr cond-result true-thunk else-thunk-or-false env v)
+  (define (print-ifexpr cond-result true-thunk else-thunk-or-false v)
     (lambda (out depth)
         (display (format "~aif(" (indent depth)) out)
         (cond-result out depth)
@@ -112,10 +111,10 @@
             (void))
         (display (format "~aend\n" (indent depth)) out)))
 
-  (define (print-lit lit-value env v)
+  (define (print-lit lit-value v)
     (lambda (out depth) (display (format "~a~a\n" (indent depth) lit-value) out)))
 
-  (define (print-ident name env v)
+  (define (print-ident name v)
     (lambda (out depth) (display name out)))
 
   (define printer (visitor print-funcall
@@ -142,16 +141,7 @@
                            ))
 
   (define parsed (parse (open-input-string "let abc = if x then (3) else print(5) end let x= fun(z) print(3) plus(3 plus(2 1)) end let t = 2")))
-  (define toplevel-result (visit-toplevel parsed (empty-env) printer))
+  (define toplevel-result (visit-toplevel parsed printer))
 
   (toplevel-result (current-output-port) 0)
-
-;;   (let loop ((remaining toplevel-result))
-;;     (if (not (empty? remaining))
-;;         (let ((curr (car remaining)))
-;;           (loop (cdr remaining))
-;;           (display (format "let ~a = " (car curr)))
-;;           ((cdr curr) (current-output-port) 0))
-;;         #f))
-
 )

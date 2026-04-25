@@ -12,7 +12,7 @@
 
 (define (truthy t) (not (falsy t)))
 
-(define (eval-visit-funcall fun-thunk arg-thunks wrong-env v)
+(define (eval-visit-funcall fun-thunk arg-thunks v)
   (lambda (env)
     (let ((fun (fun-thunk env))
           (arg-values (map (lambda (value-thunk) (value-thunk env)) arg-thunks)))
@@ -20,7 +20,7 @@
         (fun arg-values)
         (error (format "trying to call non-function ~a" fun))))))
 
-(define (eval-visit-fundef arg-names body-thunk wrong-env-at-def v)
+(define (eval-visit-fundef arg-names body-thunk v)
   ; just need to capture lexical context
   ; we can do that with closure in host language. lol.
   (lambda (env-at-def)
@@ -28,7 +28,7 @@
       (let ([actual-env (bind-env-names arg-names arg-values env-at-def)])
         (body-thunk actual-env)))))
 
-(define (eval-visit-ifexpr condition true-branch else-branch wrong-env v)
+(define (eval-visit-ifexpr condition true-branch else-branch v)
   (lambda (env)
     (if (truthy (condition env))
         (true-branch env)
@@ -37,10 +37,10 @@
             ; empty else case
             'no-else))))
 
-(define (eval-visit-lit value wrong-env v)
+(define (eval-visit-lit value v)
   (lambda (env) value))
 
-(define (eval-visit-ident name wrong-env v)
+(define (eval-visit-ident name v)
   (lambda (env)
     (lookup env name)))
 
@@ -65,10 +65,10 @@
                       eval-visit-toplevel-reduce))
 
 (define (eval-expr expr env)
-  ((visit-expr expr 'fake-env eval-visitor) env))
+  ((visit-expr expr eval-visitor) env))
 
-(define (eval-toplevel expr [starting-env (empty-env)])
-  (visit-toplevel expr starting-env eval-visitor))
+(define (eval-toplevel expr)
+  (visit-toplevel expr eval-visitor))
 
 
 (module+ test
