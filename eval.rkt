@@ -24,10 +24,12 @@
   (lambda (env)
     (let ([arg-values (map (lambda (value-thunk) (value-thunk env)) arg-thunks)])
       (cond
+        [(equal? op "=") (if (apply equal? arg-values) 1 0)]
         [(equal? op "+") (apply + arg-values)]
         [(equal? op "-") (apply - arg-values)]
         [(equal? op "*") (apply * arg-values)]
         [(equal? op "/") (apply / arg-values)]
+        [(equal? op "%") (apply remainder arg-values)]
         [(equal? op "^") (apply expt arg-values)]))))
 
 (define (eval-visit-fundef arg-names body-thunk)

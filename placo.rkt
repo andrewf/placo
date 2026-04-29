@@ -10,6 +10,8 @@
                       (lambda (args) (printf "~a\n" (car args))))
                      (empty-env)))
 
-(define env (eval-toplevel (parse (current-input-port)) prelude-env))
-
-(eval-expr (funcall (ident "main") '()) env)
+; mostly using let here to avoid accidentally printing result of main
+(let ([env (eval-toplevel (parse (current-input-port)) prelude-env)])
+  (eval-expr (funcall (ident "main") '()) env)
+  ; return void to suppress printing expr
+  (void))

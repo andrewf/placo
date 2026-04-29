@@ -1,0 +1,28 @@
+def fizzprint(current)
+    if current % 15 = 0 then
+        print(15151515)
+    else
+        if current % 5 = 0 then
+            print(55555555)
+        else
+            if current % 3 = 0 then
+                print(33333333)
+            else
+                print(current)
+            end
+        end
+    end
+end
+
+def fizzbuzz(current max k)
+    fizzprint(current)
+    if current = max then
+        0
+    else
+        k(current + 1 max k)
+    end
+end
+
+def main()
+    fizzbuzz(1 30 fizzbuzz)
+end

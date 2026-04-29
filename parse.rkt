@@ -181,10 +181,12 @@
 
 (define precedence
   ; columns: operator, precedence, right-assoc?
-  (make-hash '(("+" 20 0)
+  (make-hash '(("=" 10 0)
+               ("+" 20 0)
                ("-" 20 0)
                ("*" 30 0)
                ("/" 30 0)
+               ("%" 30 0)
                ("^" 40 1))))
 
 (define (parse-expr s)
