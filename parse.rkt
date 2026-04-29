@@ -269,120 +269,120 @@
 
 (module+ test
 
-(require rackunit)
+  (require rackunit)
 
 
-(check-equal? (parse-expr (port->token-stream (open-input-string "2 * 3 + 4")))
-              (opcall "+" (list (opcall "*" (list (lit 2) (lit 3)))
-                                (lit 4)))
-              "basic operator left-leaning tree")
+  (check-equal? (parse-expr (port->token-stream (open-input-string "2 * 3 + 4")))
+                (opcall "+" (list (opcall "*" (list (lit 2) (lit 3)))
+                                  (lit 4)))
+                "basic operator left-leaning tree")
 
-(check-equal? (parse-expr (port->token-stream (open-input-string "2 + 3 + 4")))
-              (opcall "+" (list (opcall "+" (list (lit 2) (lit 3)))
-                                (lit 4)))
-              "plus associates left")
+  (check-equal? (parse-expr (port->token-stream (open-input-string "2 + 3 + 4")))
+                (opcall "+" (list (opcall "+" (list (lit 2) (lit 3)))
+                                  (lit 4)))
+                "plus associates left")
 
-(check-equal? (parse-expr (port->token-stream (open-input-string "2 ^ 3 ^ 4")))
-              (opcall "^" (list (lit 2)
-                                (opcall "^" (list (lit 3) (lit 4)))))
-              "caret associates right")
+  (check-equal? (parse-expr (port->token-stream (open-input-string "2 ^ 3 ^ 4")))
+                (opcall "^" (list (lit 2)
+                                  (opcall "^" (list (lit 3) (lit 4)))))
+                "caret associates right")
 
-(check-equal? (parse-expr (port->token-stream (open-input-string "2 + 3")))
-              (opcall "+" (list (lit 2) (lit 3)))
-              "basic operator")
+  (check-equal? (parse-expr (port->token-stream (open-input-string "2 + 3")))
+                (opcall "+" (list (lit 2) (lit 3)))
+                "basic operator")
 
-(check-equal? (parse-expr (port->token-stream (open-input-string "2 + 3 * 4")))
-              (opcall "+" (list (lit 2) (opcall "*" (list (lit 3) (lit 4)))))
-              "basic operator right-leaning tree")
+  (check-equal? (parse-expr (port->token-stream (open-input-string "2 + 3 * 4")))
+                (opcall "+" (list (lit 2) (opcall "*" (list (lit 3) (lit 4)))))
+                "basic operator right-leaning tree")
 
-(check-equal? (parse-expr (port->token-stream (open-input-string "1 + 2 * 3 + 4 * 5")))
-              (opcall "+" (list (opcall "+" (list (lit 1)
-                                                  (opcall "*" (list (lit 2) (lit 3)))))
-                                (opcall "*" (list (lit 4) (lit 5)))))
-              "deeper mixed precedence tree")
+  (check-equal? (parse-expr (port->token-stream (open-input-string "1 + 2 * 3 + 4 * 5")))
+                (opcall "+" (list (opcall "+" (list (lit 1)
+                                                    (opcall "*" (list (lit 2) (lit 3)))))
+                                  (opcall "*" (list (lit 4) (lit 5)))))
+                "deeper mixed precedence tree")
 
-(check-equal? (parse-expr (port->token-stream (open-input-string "1 = 2 ^ 3 = 4 * 5 ^ 6 ^ 7 * (8 + 9) ")))
-              (opcall "="
-                      (list
-                       (lit 1)
-                       (opcall "="
-                               (list (opcall "^" (list (lit 2) (lit 3)))
-                                     (opcall "*"
-                                             (list
-                                              (opcall "*"
-                                                      (list
-                                                       (lit 4)
-                                                       (opcall "^"
-                                                               (list
-                                                                (lit 5)
-                                                                (opcall "^" (list (lit 6) (lit 7)))))))
-                                              (opcall "+" (list (lit 8) (lit 9)))))))))
-              "deeper mixed assoc tree")
+  (check-equal? (parse-expr (port->token-stream (open-input-string "1 = 2 ^ 3 = 4 * 5 ^ 6 ^ 7 * (8 + 9) ")))
+                (opcall "="
+                        (list
+                         (lit 1)
+                         (opcall "="
+                                 (list (opcall "^" (list (lit 2) (lit 3)))
+                                       (opcall "*"
+                                               (list
+                                                (opcall "*"
+                                                        (list
+                                                         (lit 4)
+                                                         (opcall "^"
+                                                                 (list
+                                                                  (lit 5)
+                                                                  (opcall "^" (list (lit 6) (lit 7)))))))
+                                                (opcall "+" (list (lit 8) (lit 9)))))))))
+                "deeper mixed assoc tree")
 
-   (check-equal? (parse (open-input-string "  "))
-                 '())
+  (check-equal? (parse (open-input-string "  "))
+                '())
 
-   (check-equal? (parse (open-input-string "def cd(a) 42 end"))
-                 `(,(toplevel-def (ident "cd") (fundef (list (ident "a")) (list (lit 42))))))
+  (check-equal? (parse (open-input-string "def cd(a) 42 end"))
+                `(,(toplevel-def (ident "cd") (fundef (list (ident "a")) (list (lit 42))))))
 
-   (check-equal? (parse (open-input-string "def cd() 42 end"))
-                 `(,(toplevel-def (ident "cd") (fundef '() (list (lit 42))))))
+  (check-equal? (parse (open-input-string "def cd() 42 end"))
+                `(,(toplevel-def (ident "cd") (fundef '() (list (lit 42))))))
    
-   (check-equal? (parse (open-input-string "def cd( a) 42 end def fred(z) 13 end"))
-                 `(,(toplevel-def (ident "cd") (fundef (list (ident "a")) (list (lit 42))))
-                   ,(toplevel-def (ident "fred") (fundef (list (ident "z")) (list (lit 13))))))
+  (check-equal? (parse (open-input-string "def cd( a) 42 end def fred(z) 13 end"))
+                `(,(toplevel-def (ident "cd") (fundef (list (ident "a")) (list (lit 42))))
+                  ,(toplevel-def (ident "fred") (fundef (list (ident "z")) (list (lit 13))))))
    
-   (check-equal? (parse (open-input-string "let abc=42"))
-                 `(,(toplevel-let (ident "abc") (lit 42))))
+  (check-equal? (parse (open-input-string "let abc=42"))
+                `(,(toplevel-let (ident "abc") (lit 42))))
    
-   (check-equal? (parse (open-input-string "let abc=42"))
-                 `(,(toplevel-let (ident "abc") (lit 42))))
+  (check-equal? (parse (open-input-string "let abc=42"))
+                `(,(toplevel-let (ident "abc") (lit 42))))
    
-   (check-equal? (parse (open-input-string "let abc=(3) let x=3"))
-                 `(,(toplevel-let (ident "abc") (lit 3)) ; paren-expr unwraps itself
-                   ,(toplevel-let (ident "x") (lit 3))))
+  (check-equal? (parse (open-input-string "let abc=(3) let x=3"))
+                `(,(toplevel-let (ident "abc") (lit 3)) ; paren-expr unwraps itself
+                  ,(toplevel-let (ident "x") (lit 3))))
    
-   (check-equal? (parse (open-input-string "let abc= if x then (3) end let x=3"))
-                 `(,(toplevel-let (ident "abc") (ifexpr (ident "x") (lit 3) #f))
-                   ,(toplevel-let (ident "x") (lit 3))))
+  (check-equal? (parse (open-input-string "let abc= if x then (3) end let x=3"))
+                `(,(toplevel-let (ident "abc") (ifexpr (ident "x") (lit 3) #f))
+                  ,(toplevel-let (ident "x") (lit 3))))
    
-   (check-equal? (parse (open-input-string "let abc= ( (( x) ))"))
-                 `(,(toplevel-let (ident "abc") (ident "x"))))
+  (check-equal? (parse (open-input-string "let abc= ( (( x) ))"))
+                `(,(toplevel-let (ident "abc") (ident "x"))))
    
-   (check-equal? (parse (open-input-string "let abc= if x then (3) else if 4 then ( ( (x) ) ) end end let x=3"))
-                 `(,(toplevel-let (ident "abc") (ifexpr (ident "x") (lit 3)
-                                          (ifexpr (lit 4) (ident "x") #f)))
-                   ,(toplevel-let (ident "x") (lit 3))))
+  (check-equal? (parse (open-input-string "let abc= if x then (3) else if 4 then ( ( (x) ) ) end end let x=3"))
+                `(,(toplevel-let (ident "abc") (ifexpr (ident "x") (lit 3)
+                                                       (ifexpr (lit 4) (ident "x") #f)))
+                  ,(toplevel-let (ident "x") (lit 3))))
    
-   (check-equal? (parse (open-input-string "let abc= fun (x) if x then 3 else 4 end end"))
-                 `(,(toplevel-let (ident "abc")
-                     (fundef (list (ident "x"))
-                             (list (ifexpr (ident "x")
-                                           (lit 3)
-                                           (lit 4)))))))
+  (check-equal? (parse (open-input-string "let abc= fun (x) if x then 3 else 4 end end"))
+                `(,(toplevel-let (ident "abc")
+                                 (fundef (list (ident "x"))
+                                         (list (ifexpr (ident "x")
+                                                       (lit 3)
+                                                       (lit 4)))))))
    
-   (check-equal? (parse-expr (port->token-stream (open-input-string "(g)(g)")))
-              (funcall (ident "g") (list (ident "g")))
-              "basic operator left-leaning tree")
+  (check-equal? (parse-expr (port->token-stream (open-input-string "(g)(g)")))
+                (funcall (ident "g") (list (ident "g")))
+                "basic operator left-leaning tree")
 
-   (check-equal? (parse-expr (port->token-stream (open-input-string "2 + 3 (4)")))
-              (opcall "+" (list
-                           (lit 2)
-                           (funcall (lit 3) (list (lit 4)))))
-              "basic operator left-leaning tree")
+  (check-equal? (parse-expr (port->token-stream (open-input-string "2 + 3 (4)")))
+                (opcall "+" (list
+                             (lit 2)
+                             (funcall (lit 3) (list (lit 4)))))
+                "basic operator left-leaning tree")
 
-   (check-equal? (parse (open-input-string "let abc = f (( 4 ))"))
-                 `(,(toplevel-let (ident "abc") (funcall (ident "f") (list (lit 4))))))
+  (check-equal? (parse (open-input-string "let abc = f (( 4 ))"))
+                `(,(toplevel-let (ident "abc") (funcall (ident "f") (list (lit 4))))))
    
-   (check-equal? (parse (open-input-string "let abc = f()"))
-                 `(,(toplevel-let (ident "abc") (funcall (ident "f") '()))))
+  (check-equal? (parse (open-input-string "let abc = f()"))
+                `(,(toplevel-let (ident "abc") (funcall (ident "f") '()))))
    
-   (check-equal? (parse-string "let abc = f(1)(2)")
-                 `(,(toplevel-let (ident "abc") (funcall (funcall (ident "f") (list (lit 1))) (list (lit 2)))))
-                 "nested/repeated funcall")
+  (check-equal? (parse-string "let abc = f(1)(2)")
+                `(,(toplevel-let (ident "abc") (funcall (funcall (ident "f") (list (lit 1))) (list (lit 2)))))
+                "nested/repeated funcall")
    
-   (check-equal? (parse-string "let abc = f(1)(2)(3)")
-                 `(,(toplevel-let (ident "abc") (funcall (funcall (funcall (ident "f") (list (lit 1))) (list (lit 2))) (list (lit 3)))))
-              "nested/repeated funcall, nest harder")
+  (check-equal? (parse-string "let abc = f(1)(2)(3)")
+                `(,(toplevel-let (ident "abc") (funcall (funcall (funcall (ident "f") (list (lit 1))) (list (lit 2))) (list (lit 3)))))
+                "nested/repeated funcall, nest harder")
 
-)
+  )
