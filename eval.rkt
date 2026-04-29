@@ -12,7 +12,7 @@
 
 (define (truthy t) (not (falsy t)))
 
-(define (eval-visit-funcall fun-thunk arg-thunks v)
+(define (eval-visit-funcall fun-thunk arg-thunks)
   (lambda (env)
     (let ((fun (fun-thunk env))
           (arg-values (map (lambda (value-thunk) (value-thunk env)) arg-thunks)))
@@ -20,7 +20,7 @@
         (fun arg-values)
         (error (format "trying to call non-function ~a" fun))))))
 
-(define (eval-visit-opcall op arg-thunks v)
+(define (eval-visit-opcall op arg-thunks)
   (lambda (env)
     (let ([arg-values (map (lambda (value-thunk) (value-thunk env)) arg-thunks)])
       (cond
@@ -30,7 +30,7 @@
         [(equal? op "/") (apply / arg-values)]
         [(equal? op "^") (apply expt arg-values)]))))
 
-(define (eval-visit-fundef arg-names body-thunk v)
+(define (eval-visit-fundef arg-names body-thunk)
   ; just need to capture lexical context
   ; we can do that with closure in host language. lol.
   (lambda (env-at-def)
@@ -38,7 +38,7 @@
       (let ([actual-env (bind-env-names arg-names arg-values env-at-def)])
         (body-thunk actual-env)))))
 
-(define (eval-visit-ifexpr condition true-branch else-branch v)
+(define (eval-visit-ifexpr condition true-branch else-branch)
   (lambda (env)
     (if (truthy (condition env))
         (true-branch env)
@@ -47,10 +47,10 @@
             ; empty else case
             'no-else))))
 
-(define (eval-visit-lit value v)
+(define (eval-visit-lit value)
   (lambda (env) value))
 
-(define (eval-visit-ident name v)
+(define (eval-visit-ident name)
   (lambda (env)
     (lookup env name)))
 

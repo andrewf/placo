@@ -4,12 +4,12 @@
 
 (require "parse.rkt")
 
-(struct visitor (funcall ; (fun-result arg-results v) -> result
-                 opcall  ; (op arg-results v) -> result
-                 fundef  ; (fundef? v) -> result
-                 ifexpr  ; (cond-result true-thunk else-thunk-or-false v) -> result
-                 lit     ; (lit-value v) -> result
-                 ident   ; (name v)
+(struct visitor (funcall ; (fun-result arg-results) -> result
+                 opcall  ; (op arg-results) -> result
+                 fundef  ; (fundef?) -> result
+                 ifexpr  ; (cond-result true-thunk else-thunk-or-false) -> result
+                 lit     ; (lit-value) -> result
+                 ident   ; (name) -> result
                  expr-list-init    ; () -> acc, initial acc for reduce-expr-list
                  reduce-expr-list  ; (expr-result acc) -> acc
                  toplevel-init     ; () -> acc
@@ -32,15 +32,13 @@
       (visit-expr (funcall-fun syntax) v)
       (map (lambda (arg-expr)
              (visit-expr arg-expr v))
-           (funcall-args syntax))
-      v)]
+           (funcall-args syntax)))]
     [(opcall? syntax)
      ((visitor-opcall v)
       (opcall-op syntax)
       (map (lambda (arg-expr)
              (visit-expr arg-expr v))
-           (opcall-args syntax))
-      v)]
+           (opcall-args syntax)))]
     [(fundef? syntax)
      (visit-fundef syntax v)]
     [(ifexpr? syntax)
@@ -49,19 +47,17 @@
       (visit-expr (ifexpr-true syntax) v)
       (if (ifexpr-else syntax)
           (visit-expr (ifexpr-else syntax) v)
-          #f)
-      v)]
+          #f))]
     [(lit? syntax)
-     ((visitor-lit v) (lit-value syntax) v)]
+     ((visitor-lit v) (lit-value syntax))]
     [(ident? syntax)
-     ((visitor-ident v) (ident-name syntax) v)]
+     ((visitor-ident v) (ident-name syntax))]
     [else (error (format "invalid expression: ~v" syntax))]))
 
 (define (visit-fundef syntax v)
   ((visitor-fundef v)
    (map ident-name (fundef-args syntax))
-   (visit-expr-list (fundef-body syntax) v)
-   v))
+   (visit-expr-list (fundef-body syntax) v)))
 
 ; evaluate a toplevel a reduced value as
 ; specified by visitor
@@ -90,7 +86,7 @@
 
   (define (indent n) (make-string (* 2 n) #\space))
 
-  (define (print-funcall fun-result arg-results visitor)
+  (define (print-funcall fun-result arg-results)
     (lambda (out depth)
       (display (indent depth) out)
       (fun-result out depth)
@@ -100,7 +96,7 @@
       (display ")\n" out)
       ))
 
-  (define (print-opcall op arg-results v)
+  (define (print-opcall op arg-results)
     (let ([lhs (car arg-results)]
           [rhs (cdr arg-results)])
       (lambda (out depth)
@@ -113,13 +109,13 @@
             (void))
         (display (format "~a)\n" (indent depth))))))
 
-  (define (print-fundef args body-thunk v)
+  (define (print-fundef args body-thunk)
     (lambda (out depth)
       (display (format "fun ~a\n" args) out)
       (body-thunk out (incr depth))
       (display (format "~aend\n" (indent depth)) out)))
 
-  (define (print-ifexpr cond-result true-thunk else-thunk-or-false v)
+  (define (print-ifexpr cond-result true-thunk else-thunk-or-false)
     (lambda (out depth)
         (display (format "~aif(" (indent depth)) out)
         (cond-result out depth)
@@ -132,10 +128,10 @@
             (void))
         (display (format "~aend\n" (indent depth)) out)))
 
-  (define (print-lit lit-value v)
+  (define (print-lit lit-value)
     (lambda (out depth) (display (format "~a~a\n" (indent depth) lit-value) out)))
 
-  (define (print-ident name v)
+  (define (print-ident name)
     (lambda (out depth) (display name out)))
 
   (define printer (visitor print-funcall
