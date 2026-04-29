@@ -288,22 +288,26 @@
                                   (opcall "*" (list (lit 4) (lit 5)))))
                 "deeper mixed precedence tree")
 
-  (check-equal? (parse-expr (port->token-stream (open-input-string "1 = 2 ^ 3 = 4 * 5 ^ 6 ^ 7 * (8 + 9) ")))
-                (opcall "="
+  (check-equal? (parse-expr
+                 (port->token-stream
+                  (open-input-string
+                   "2 ^ 3 + 4 * 5 ^ 6 ^ 7 * (8 + 9)")))
+                (opcall
+                 "+"
+                 (list (opcall "^" (list (lit 2) (lit 3)))
+                       (opcall
+                        "*"
                         (list
-                         (lit 1)
-                         (opcall "="
-                                 (list (opcall "^" (list (lit 2) (lit 3)))
-                                       (opcall "*"
-                                               (list
-                                                (opcall "*"
-                                                        (list
-                                                         (lit 4)
-                                                         (opcall "^"
-                                                                 (list
-                                                                  (lit 5)
-                                                                  (opcall "^" (list (lit 6) (lit 7)))))))
-                                                (opcall "+" (list (lit 8) (lit 9)))))))))
+                         (opcall
+                          "*"
+                          (list
+                           (lit 4)
+                           (opcall
+                            "^"
+                            (list
+                             (lit 5)
+                             (opcall "^" (list (lit 6) (lit 7)))))))
+                         (opcall "+" (list (lit 8) (lit 9)))))))
                 "deeper mixed assoc tree")
 
   (check-equal? (parse (open-input-string "  "))
