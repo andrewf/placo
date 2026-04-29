@@ -5,6 +5,7 @@
 (require "parse.rkt")
 
 (struct visitor (funcall ; (fun-result arg-results v) -> result
+                 opcall  ; (op arg-results v) -> result
                  fundef  ; (fundef? v) -> result
                  ifexpr  ; (cond-result true-thunk else-thunk-or-false v) -> result
                  lit     ; (lit-value v) -> result
@@ -32,6 +33,13 @@
       (map (lambda (arg-expr)
              (visit-expr arg-expr v))
            (funcall-args syntax))
+      v)]
+    [(opcall? syntax)
+     ((visitor-opcall v)
+      (opcall-op syntax)
+      (map (lambda (arg-expr)
+             (visit-expr arg-expr v))
+           (opcall-args syntax))
       v)]
     [(fundef? syntax)
      (visit-fundef syntax v)]
@@ -92,6 +100,19 @@
       (display ")\n" out)
       ))
 
+  (define (print-opcall op arg-results v)
+    (let ([lhs (car arg-results)]
+          [rhs (cdr arg-results)])
+      (lambda (out depth)
+        (display (indent depth) out)
+        (display "(\n")
+        (lhs out (incr depth))
+        (display (format "~a~a\n" (indent (incr depth)) op) out)
+        (if (not (empty? rhs))
+            ((car rhs) out (incr depth))
+            (void))
+        (display (format "~a)\n" (indent depth))))))
+
   (define (print-fundef args body-thunk v)
     (lambda (out depth)
       (display (format "fun ~a\n" args) out)
@@ -118,6 +139,7 @@
     (lambda (out depth) (display name out)))
 
   (define printer (visitor print-funcall
+                           print-opcall
                            print-fundef
                            print-ifexpr
                            print-lit
@@ -140,7 +162,7 @@
                              ))
                            ))
 
-  (define parsed (parse (open-input-string "let abc = if x then (3) else print(5) end let x= fun(z) print(3) plus(3 plus(2 1)) end let t = 2")))
+  (define parsed (parse (open-input-string "let abc = if x then (3) else print(5) end let x= fun(z) print(3 + 2) 3 * 2 + 1 end let t = 2")))
   (define toplevel-result (visit-toplevel parsed printer))
 
   (toplevel-result (current-output-port) 0)

@@ -20,6 +20,16 @@
         (fun arg-values)
         (error (format "trying to call non-function ~a" fun))))))
 
+(define (eval-visit-opcall op arg-thunks v)
+  (lambda (env)
+    (let ([arg-values (map (lambda (value-thunk) (value-thunk env)) arg-thunks)])
+      (cond
+        [(equal? op "+") (apply + arg-values)]
+        [(equal? op "-") (apply - arg-values)]
+        [(equal? op "*") (apply * arg-values)]
+        [(equal? op "/") (apply / arg-values)]
+        [(equal? op "^") (apply expt arg-values)]))))
+
 (define (eval-visit-fundef arg-names body-thunk v)
   ; just need to capture lexical context
   ; we can do that with closure in host language. lol.
@@ -55,6 +65,7 @@
 
 (define eval-visitor (visitor
                       eval-visit-funcall
+                      eval-visit-opcall
                       eval-visit-fundef
                       eval-visit-ifexpr
                       eval-visit-lit
@@ -99,6 +110,17 @@
                                "let g = 1 let g = 2 let f = g")))
                 2
                 "sequential let")
+
+  (check-equal? (eval-expr (opcall "+" (list (ident "f") (lit 2)))
+                           (bind-env "f" 1 (empty-env)))
+                3
+                "basic expr var")
+
+  (check-equal? (eval-expr (opcall "+" (list (ident "f")
+                                             (opcall "*" (list (ident "f") (ident "f")))))
+                           (bind-env "f" 2 (empty-env)))
+                6
+                "basic expr var")
 
    (check-equal? (eval-expr
                    (ident "f")

@@ -181,24 +181,11 @@
 
 (define precedence
   ; columns: operator, precedence, right-assoc?
-  (make-hash '(("=" 10 1)
-               ("+" 20 0)
+  (make-hash '(("+" 20 0)
                ("-" 20 0)
                ("*" 30 0)
                ("/" 30 0)
                ("^" 40 1))))
-
-;; (define (parse-expr s)
-;;   (let ([main (or (parse-lit s)
-;;                   (parse-paren-expr s)
-;;                   (parse-if s)
-;;                   (parse-fundef s)
-;;                   (parse-ident s)  ; at end so it doesn't parse keywords as vars
-;;                   #f)])
-;;     ; parse optional postfix clause (fn call parens, etc)
-;;     (if main
-;;         (or (expr-postfix s main) main)
-;;         #f)))
 
 (define (parse-expr s)
   (parse-op-expr s 0))
