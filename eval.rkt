@@ -54,9 +54,12 @@
   (lambda (env)
     (lookup env name)))
 
-(define (eval-visit-expr-list-init) (void))
+(define (eval-visit-expr-list-init) (lambda (env) (void)))
 
-(define (eval-visit-reduce-expr-list expr-result acc) expr-result) ; only keep latest result
+(define (eval-visit-reduce-expr-list expr-result acc)
+  (lambda (env)
+    (acc env)  ; run previous accumulator for side effects
+    (expr-result env))) ; return latest result
 
 (define (eval-visit-toplevel-init) (empty-env))
 
