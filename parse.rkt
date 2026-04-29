@@ -204,12 +204,17 @@
   (parse-op-expr s 0))
 
 (define (parse-opleaf-expr s)
-  (or (parse-lit s)
-      (parse-paren-expr s)
-      (parse-if s)
-      (parse-fundef s)
-      (parse-ident s)  ; at end so it doesn't parse keywords as vars
-      #f))
+  (let ([leaf (or (parse-lit s)
+                  (parse-paren-expr s)
+                  (parse-if s)
+                  (parse-fundef s)
+                  (parse-ident s)  ; at end so it doesn't parse keywords as vars
+                  #f)])
+    ; easier to do postfix operator here than in op-expr
+    ; this basically means postfix is higher precedence than all operators
+    (if leaf
+        (or (expr-postfix s leaf) leaf)
+        #f)))
 
 (define (parse-op-expr s prev-prec)
   (let ([lhs (parse-opleaf-expr s)])
@@ -356,6 +361,16 @@
                                            (lit 3)
                                            (lit 4)))))))
    
+   (check-equal? (parse-expr (port->token-stream (open-input-string "(g)(g)")))
+              (funcall (ident "g") (list (ident "g")))
+              "basic operator left-leaning tree")
+
+   (check-equal? (parse-expr (port->token-stream (open-input-string "2 + 3 (4)")))
+              (opcall "+" (list
+                           (lit 2)
+                           (funcall (lit 3) (list (lit 4)))))
+              "basic operator left-leaning tree")
+
    (check-equal? (parse (open-input-string "let abc = f (( 4 ))"))
                  `(,(toplevel-let (ident "abc") (funcall (ident "f") (list (lit 4))))))
    
