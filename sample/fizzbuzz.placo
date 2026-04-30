@@ -1,3 +1,6 @@
+# function to print a single line of FizzBuzz
+# sort of
+# Placo doesn't have strings, so we emit sentinel numbers instead
 def fizzprint(current)
     if current % 15 = 0 then
         print(15151515)
@@ -14,6 +17,8 @@ def fizzprint(current)
     end
 end
 
+# we don't have recursion (function names aren't in scope inside their body)
+# so we do a bit of a manual CPS conversion
 def fizzbuzz(current max k)
     fizzprint(current)
     if current = max then

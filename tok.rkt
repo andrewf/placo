@@ -12,10 +12,11 @@
                      continue-pred?
                      [error-pred? (lambda (p) #f)])
   (let* ([so-far (open-output-string)]
+         [copy-char (lambda () (write-char (read-char text-stream) so-far))]
          [flush (lambda () (flush-fn (get-output-string so-far)))])
     (if (start-pred? (peek-char text-stream))
         (begin
-          (write-char (read-char text-stream) so-far) ; incl first char
+          (copy-char) ; incl first char
           (let do-token ()
             (let ([p (peek-char text-stream)])
               (cond
@@ -23,7 +24,7 @@
                  (flush)]
                 [(continue-pred? p)
                  (begin
-                   (write-char (read-char text-stream) so-far)
+                   (copy-char)
                    (do-token))]
                 [(error-pred? p)
                  (error "lexer error")]
@@ -33,7 +34,7 @@
 
 (define (is-op? c)
   ; surely there must be a better way?
-  (string-contains? "=!@#$%^&*()[]{},./-+~|" (make-string 1 c)))
+  (string-contains? "=!@$%^&*()[]{},./-+~|" (make-string 1 c)))
 
 ; return generator of tokens
 (define (tokenize text-stream)
@@ -48,6 +49,13 @@
            (void)]
           [(char-whitespace? p)
            (read-char text-stream) ; throw away
+           (per-token)]
+          [(equal? #\# p)
+           ; ignore result of parse-token
+           (parse-token text-stream
+                        (lambda (s) #f)  ; don't emit anything
+                        (lambda (p) (equal? p #\#))
+                        (lambda (p) (not (equal? p #\newline))))
            (per-token)]
           [(char-alphabetic? p)
            (yield (parse-token text-stream
@@ -71,7 +79,7 @@
                                is-op?
                                (lambda (t) #f))) ; continue is false, only single char operators
            (per-token)]
-          [else (raise "augh")])))
+          [else (error (format "unexpected character ~v" p))])))
     ; start loop
     (per-token)
     ; final token
@@ -114,6 +122,11 @@
                     (token 'operator "/")
                     (token 'symbolic "bc"))
               "supports numbers")
+
+(check-equal? (sequence->list (token-sequence (open-input-string "aaa# asdf \nbbb ")))
+              (list (token 'symbolic "aaa")
+                    (token 'symbolic "bbb"))
+              "separates comments")
 
 (check-exn exn:fail?
            (lambda () (sequence->list (token-sequence (open-input-string "a3b 34bc")))))
