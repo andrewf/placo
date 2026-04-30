@@ -1,0 +1,15 @@
+def fac-impl(i acc k)
+    if i = 1 then
+        acc
+    else
+        k(i - 1 acc * i k)
+    end
+end
+
+def factorial(i)
+    fac-impl(i 1 fac-impl)
+end
+
+def main()
+    print(factorial(5))
+end
