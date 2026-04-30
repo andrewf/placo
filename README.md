@@ -64,7 +64,7 @@ I may also try implementing explicitly continuation-based operations,
 or see if my generic visitor framework can be used for things like
 partial evaluation.
 
-## Samples and Usage
+## Usage
 
 You can run a placo file by piping it into the standard input of the placo script. If you're in the project directory and have racket installed:
 
